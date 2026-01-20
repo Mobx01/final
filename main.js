@@ -157,6 +157,79 @@ window.addEventListener('mousemove', e => {
   pitch = THREE.MathUtils.clamp(pitch, -0.6, 0.4);
 });
 
+/* ====================
+   MISSION STOPS (MULTIPLE)
+==================== */
+const missionStops = [];
+function createMissionStop(x, y, z) {
+
+  const group = new THREE.Group();
+  group.position.set(x, y, z);
+  scene.add(group);
+
+  // MAIN VICE CITY COLUMN
+  const columnGeo = new THREE.CylinderGeometry(0.6, 0.6, 2, 32, 1, true);
+  const columnMat = new THREE.MeshBasicMaterial({
+    color: 0xff2fd5,          // Vice City pink
+    transparent: true,
+    opacity: 0.35,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+
+  const column = new THREE.Mesh(columnGeo, columnMat);
+  column.position.y = 0;
+  group.add(column);
+
+  // INNER GLOW
+  const innerGlowGeo = new THREE.CylinderGeometry(0.7, 0.7, 2.2, 32, 1, true);
+  const innerGlowMat = new THREE.MeshBasicMaterial({
+    color: 0xff66ff,
+    transparent: true,
+    opacity: 0.25,
+    side: THREE.BackSide,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+
+  const innerGlow = new THREE.Mesh(innerGlowGeo, innerGlowMat);
+  innerGlow.position.y = 0;
+  group.add(innerGlow);
+
+  // OUTER AURA RING (GROUND GLOW)
+  const ringGeo = new THREE.RingGeometry(0.8, 1.2, 32);
+  const ringMat = new THREE.MeshBasicMaterial({
+    color: 0xff2fd5,
+    transparent: true,
+    opacity: 0.5,
+    side: THREE.DoubleSide,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0;
+  group.add(ring);
+
+  // store for animation + detection
+  missionStops.push({
+    group,
+    column,
+    innerGlow,
+    ring,
+    baseY: y
+  });
+
+  return group;
+}
+createMissionStop(7,-0.5,7);
+createMissionStop(-4,-0.5,-72);
+createMissionStop(7,-0.5,50);
+createMissionStop(-60,-0.5,-10);
+createMissionStop(35,-0.5,-30);
+createMissionStop(-97,-0.5,80);
 /* =========================
    ANIMATE
 ========================= */
@@ -221,16 +294,41 @@ function animate() {
   minimapCamera.position.x = character.position.x;
   minimapCamera.position.z = character.position.z;
   minimapCamera.lookAt(character.position.x, 0, character.position.z);
+  
+/*MISSIONSTOP*/
+/* MISSION STOPS ANIMATION */
+/* MISSION STOPS ANIMATION */
+const time = performance.now() * 0.004;
+
+missionStops.forEach(ms => {
+
+  // floating effect
+  const floatY = Math.sin(time + ms.group.position.x) * 0.2;
+  ms.group.position.y = ms.baseY + floatY;
+
+  // pulse scale
+  const pulse = Math.sin(time * 2) * 0.15 + 1;
+  ms.column.scale.set(pulse, 1, pulse);
+  ms.innerGlow.scale.set(pulse * 1.2, 1, pulse * 1.2);
+
+  // opacity pulse
+  ms.column.material.opacity = 0.25 + Math.sin(time * 2) * 0.1;
+  ms.innerGlow.material.opacity = 0.2 + Math.sin(time * 3) * 0.1;
+
+  // slow rotation
+  ms.group.rotation.y += 0.005;
+});
+
 
   /* RENDER */
   csm.update();
-
+  
   renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
   renderer.render(scene, camera);
 
   minimapRenderer.render(scene, minimapCamera);
-}
 
+}
 animate();
 
 /* =========================
