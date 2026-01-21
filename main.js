@@ -336,9 +336,41 @@ const clock = new THREE.Clock();
 
 const MOVE_SPEED = 5;
 const RUN_MULTIPLIER = 2;
+
+
+/* =========================
+   CAMERA SMOOTH FOLLOW
+========================= */
+const cameraOffset = new THREE.Vector3();
+const cameraTarget = new THREE.Vector3();
+const lookAtPos = new THREE.Vector3();
+
 const CAMERA_DISTANCE = 8;
 const CAMERA_HEIGHT = 3;
+const CAMERA_LERP = 0.1; // smoothing factor
 
+function updateCamera() {
+  // Compute offset from yaw and pitch
+  cameraOffset.set(
+    Math.sin(yaw) * CAMERA_DISTANCE,
+    CAMERA_HEIGHT + pitch * 2, // reduce multiplier for smooth vertical movement
+    Math.cos(yaw) * CAMERA_DISTANCE
+  );
+
+  // Target is slightly above character for lookAt
+  cameraTarget.copy(character.position).add(new THREE.Vector3(0, 1.5, 0));
+
+  // Smoothly move camera toward target + offset
+  camera.position.lerp(cameraTarget.clone().add(cameraOffset), CAMERA_LERP);
+
+  // Smooth lookAt
+  lookAtPos.copy(cameraTarget);
+  camera.lookAt(lookAtPos);
+}
+
+/* =========================
+   ANIMATE LOOP
+========================= */
 function animate() {
   requestAnimationFrame(animate);
   const delta = clock.getDelta();
@@ -399,47 +431,32 @@ function animate() {
   character.position.y = -1.8;
 
   /* CAMERA FOLLOW */
-  camera.position.copy(character.position).add(
-    new THREE.Vector3(
-      Math.sin(yaw) * CAMERA_DISTANCE,
-      CAMERA_HEIGHT + pitch * 5,
-      Math.cos(yaw) * CAMERA_DISTANCE
-    )
-  );
-
-  camera.lookAt(character.position.clone().add(new THREE.Vector3(0, 1.5, 0)));
+  updateCamera();
 
   /* MINIMAP FOLLOW */
   minimapCamera.position.x = character.position.x;
   minimapCamera.position.z = character.position.z;
   minimapCamera.lookAt(character.position.x, 0, character.position.z);
+
   /* PLAYER FOLLOW CIRCLE UPDATE */
-followCircle.position.x = character.position.x;
-followCircle.position.z = character.position.z;
-/*MISSIONSTOP*/
-/* MISSION STOPS ANIMATION */
-/* MISSION STOPS ANIMATION */
-const time = performance.now() * 0.004;
+  followCircle.position.x = character.position.x;
+  followCircle.position.z = character.position.z;
 
-missionStops.forEach(ms => {
+  /* MISSION STOPS ANIMATION */
+  const time = performance.now() * 0.004;
+  missionStops.forEach(ms => {
+    const floatY = Math.sin(time + ms.group.position.x) * 0.2;
+    ms.group.position.y = ms.baseY + floatY;
 
-  // floating effect
-  const floatY = Math.sin(time + ms.group.position.x) * 0.2;
-  ms.group.position.y = ms.baseY + floatY;
+    const pulse = Math.sin(time * 2) * 0.15 + 1;
+    ms.column.scale.set(pulse, 1, pulse);
+    ms.innerGlow.scale.set(pulse * 1.2, 1, pulse * 1.2);
 
-  // pulse scale
-  const pulse = Math.sin(time * 2) * 0.15 + 1;
-  ms.column.scale.set(pulse, 1, pulse);
-  ms.innerGlow.scale.set(pulse * 1.2, 1, pulse * 1.2);
+    ms.column.material.opacity = 0.25 + Math.sin(time * 2) * 0.1;
+    ms.innerGlow.material.opacity = 0.2 + Math.sin(time * 3) * 0.1;
 
-  // opacity pulse
-  ms.column.material.opacity = 0.25 + Math.sin(time * 2) * 0.1;
-  ms.innerGlow.material.opacity = 0.2 + Math.sin(time * 3) * 0.1;
-
-  // slow rotation
-  ms.group.rotation.y += 0.005;
-});
-
+    ms.group.rotation.y += 0.005;
+  });
 
   /* RENDER */
   csm.update();
@@ -448,6 +465,9 @@ missionStops.forEach(ms => {
   renderer.clearDepth();
   minimapRenderer.render(scene, minimapCamera);
 }
+
+animate();
+
 
 animate();
 
