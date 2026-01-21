@@ -41,7 +41,6 @@ minimapCamera.lookAt(0, 0, 0);
    LIGHTS
 ========================= */
 scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-
 /* =========================
    LOADING MANAGER
 ========================= */
@@ -63,7 +62,6 @@ loadingManager.onProgress = function (url, loaded, total) {
 loadingManager.onLoad = function () {
   loadingContainer.style.display = 'none';
 };
-
 /* =========================
    CSM SHADOWS
 ========================= */
@@ -83,12 +81,16 @@ csm.lights.forEach(l => {
 });
 
 /* =========================
-   WORLD (SINGLE MAP FILE)
+   LOADER
 ========================= */
-loader.load('public/models/Scene.glb', gltf => {
-  const world = gltf.scene;
+//const loader = new GLTFLoader();
 
-  world.scale.set(1, 1, 1); // adjust if needed
+/* =========================
+   WORLD
+========================= */
+loader.load('public/models/newmap.glb', gltf => {
+  const world = gltf.scene;
+  world.scale.set(1, 1, 1);
   world.position.set(0, 0, 0);
 
   world.traverse(o => {
@@ -107,6 +109,27 @@ loader.load('public/models/Scene.glb', gltf => {
 ========================= */
 const character = new THREE.Object3D();
 scene.add(character);
+/* =========================
+   PLAYER FOLLOW CIRCLE
+========================= */
+const followCircleGeo = new THREE.CircleGeometry(2);
+const followCircleMat = new THREE.MeshBasicMaterial({
+  color: 0x32CD32,
+  transparent: true,
+  opacity: 0.6,
+  side: THREE.DoubleSide,
+  depthWrite: false
+});
+
+const followCircle = new THREE.Mesh(followCircleGeo, followCircleMat);
+followCircle.rotation.x = -Math.PI / 2;
+followCircle.position.y = 49; // same as your ground height
+scene.add(followCircle);
+const edges = new THREE.EdgesGeometry(followCircleGeo);
+const borderMaterial = new THREE.LineBasicMaterial({color:0x000000})
+const border = new THREE.LineSegments(edges, borderMaterial);
+border.scale.set(1.01,1.01,1.01);
+followCircle.add(border);
 
 let soldier, mixer;
 const actions = {};
@@ -115,7 +138,7 @@ let currentAction;
 loader.load('public/models/Soldier.glb', gltf => {
   soldier = gltf.scene;
   soldier.scale.set(2, 2, 2);
-  soldier.position.set(0, 1.0, 0);   // feet on ground
+  soldier.position.set(0, 1.0, 0);
   soldier.rotation.y = Math.PI;
 
   soldier.traverse(o => {
@@ -133,21 +156,22 @@ loader.load('public/models/Soldier.glb', gltf => {
     actions[clip.name] = mixer.clipAction(clip);
   });
 
-  currentAction = actions['Idle'];
+  currentAction = actions['Idle'] || Object.values(actions)[0];
   if (currentAction) currentAction.play();
 });
 
 /* =========================
-   INPUT
+   INPUT (DESKTOP)
 ========================= */
 const keys = {};
 window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
 window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
 /* =========================
-   MOUSE CAMERA
+   CAMERA ROTATION (DESKTOP)
 ========================= */
 let yaw = 0, pitch = 0, mouseDown = false;
+
 window.addEventListener('mousedown', () => mouseDown = true);
 window.addEventListener('mouseup', () => mouseDown = false);
 window.addEventListener('mousemove', e => {
@@ -157,6 +181,81 @@ window.addEventListener('mousemove', e => {
   pitch = THREE.MathUtils.clamp(pitch, -0.6, 0.4);
 });
 
+/* =========================
+   MOBILE CONTROLS (GTA STYLE)
+========================= */
+let joyActive = false;
+let runActive = false;
+let joyStart = new THREE.Vector2();
+let joyDelta = new THREE.Vector2();
+
+let touchCamActive = false;
+let camLast = new THREE.Vector2();
+
+const joystick = document.getElementById('joystick');
+const stick = joystick?.querySelector('.stick');
+const runBtn = document.getElementById('runBtn');
+
+if (joystick) {
+  joystick.addEventListener('touchstart', e => {
+    joyActive = true;
+    const t = e.touches[0];
+    joyStart.set(t.clientX, t.clientY);
+  });
+
+  joystick.addEventListener('touchmove', e => {
+    if (!joyActive) return;
+    const t = e.touches[0];
+    joyDelta.set(
+      t.clientX - joyStart.x,
+      t.clientY - joyStart.y
+    );
+
+    const max = 50;
+    const clamped = joyDelta.clone().clampLength(0, max);
+    if (stick) {
+      stick.style.transform = `translate(${clamped.x}px, ${clamped.y}px)`;
+    }
+  });
+
+  joystick.addEventListener('touchend', () => {
+    joyActive = false;
+    joyDelta.set(0, 0);
+    if (stick) stick.style.transform = `translate(-50%, -50%)`;
+  });
+}
+
+if (runBtn) {
+  runBtn.addEventListener('touchstart', () => runActive = true);
+  runBtn.addEventListener('touchend', () => runActive = false);
+}
+
+// Camera touch anywhere else
+window.addEventListener('touchstart', e => {
+  if (e.target.closest('#joystick') || e.target.closest('#runBtn')) return;
+
+  touchCamActive = true;
+  const t = e.touches[0];
+  camLast.set(t.clientX, t.clientY);
+});
+
+window.addEventListener('touchmove', e => {
+  if (!touchCamActive) return;
+
+  const t = e.touches[0];
+  const dx = t.clientX - camLast.x;
+  const dy = t.clientY - camLast.y;
+
+  yaw -= dx * 0.005;
+  pitch -= dy * 0.003;
+  pitch = THREE.MathUtils.clamp(pitch, -0.6, 0.4);
+
+  camLast.set(t.clientX, t.clientY);
+});
+
+window.addEventListener('touchend', () => {
+  touchCamActive = false;
+});
 /* ====================
    MISSION STOPS (MULTIPLE)
 ==================== */
@@ -231,7 +330,7 @@ createMissionStop(-60,-0.5,-10);
 createMissionStop(35,-0.5,-30);
 createMissionStop(-97,-0.5,80);
 /* =========================
-   ANIMATE
+   ANIMATE LOOP
 ========================= */
 const clock = new THREE.Clock();
 
@@ -251,20 +350,40 @@ function animate() {
   const camRight = new THREE.Vector3().crossVectors(camDir, new THREE.Vector3(0, 1, 0)).normalize();
   const moveDir = new THREE.Vector3();
 
+  // keyboard
   if (keys.w) moveDir.add(camDir);
   if (keys.s) moveDir.sub(camDir);
   if (keys.a) moveDir.sub(camRight);
   if (keys.d) moveDir.add(camRight);
 
+  // joystick
+  if (joyActive) {
+    const deadZone = 10;
+    const maxDist = 60;
+
+    const dx = THREE.MathUtils.clamp(joyDelta.x, -maxDist, maxDist);
+    const dy = THREE.MathUtils.clamp(joyDelta.y, -maxDist, maxDist);
+
+    if (Math.abs(dx) > deadZone || Math.abs(dy) > deadZone) {
+      moveDir
+        .addScaledVector(camRight, dx / maxDist)
+        .addScaledVector(camDir, -dy / maxDist);
+    }
+  }
+
   if (moveDir.lengthSq()) {
     moveDir.normalize();
+
     let speed = MOVE_SPEED * delta;
-    if (keys.shift) speed *= RUN_MULTIPLIER;
+    if (keys.shift || runActive) speed *= RUN_MULTIPLIER;
 
     character.position.addScaledVector(moveDir, speed);
     character.rotation.y = Math.atan2(moveDir.x, moveDir.z);
 
-    const next = keys.shift ? actions.Run : actions.Walk;
+    const next = (keys.shift || runActive)
+      ? actions.Run || actions.Walk
+      : actions.Walk || actions.Run;
+
     if (next && currentAction !== next) {
       if (currentAction) currentAction.fadeOut(0.15);
       next.reset().fadeIn(0.15).play();
@@ -294,7 +413,9 @@ function animate() {
   minimapCamera.position.x = character.position.x;
   minimapCamera.position.z = character.position.z;
   minimapCamera.lookAt(character.position.x, 0, character.position.z);
-  
+  /* PLAYER FOLLOW CIRCLE UPDATE */
+followCircle.position.x = character.position.x;
+followCircle.position.z = character.position.z;
 /*MISSIONSTOP*/
 /* MISSION STOPS ANIMATION */
 /* MISSION STOPS ANIMATION */
@@ -322,13 +443,12 @@ missionStops.forEach(ms => {
 
   /* RENDER */
   csm.update();
-  
-  renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
   renderer.render(scene, camera);
 
+  renderer.clearDepth();
   minimapRenderer.render(scene, minimapCamera);
-
 }
+
 animate();
 
 /* =========================

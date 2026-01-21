@@ -50,17 +50,18 @@
 
     /* ===== MINIMAP ===== */
     .minimap {
-      width: 200px;
-      height: 200px;
+      width: 100px;
+      height: 100px;
       border-radius: 50%;
       border: 4px solid black;
       overflow: hidden;
       position: fixed;
-      right: 20px;
-      bottom: 20px;
+      right: 8px;
+      top:5px;
       background: rgba(0,0,0,0.2);
       z-index: 1000;
       pointer-events: none;
+      border-color: #eb8ab8;
     }
 
     /* ===== NAVBAR EXAMPLE ===== */
@@ -109,3 +110,70 @@
     font-size:2rem;
     
   }
+  /* ===== MOBILE CONTROLS ===== */
+#mobile-controls {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1100;
+}
+
+#joystick, #cameraPad {
+  position: absolute;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.06);
+  border: 2px solid rgba(255,255,255,0.18);
+  touch-action: none;
+  pointer-events: auto;
+}
+
+#joystick {
+  left: 20px;
+  bottom: 20px;
+}
+
+#joystick .stick {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.35);
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+
+
+#runBtn {
+  position: absolute;
+  right: 190px;
+  bottom: 50px;
+  width: 90px;
+  height: 44px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.6);
+  border: 2px solid rgba(255,255,255,0.25);
+  color: #fff;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  user-select: none;
+}
+
+/* Hide mobile UI on desktop */
+@media (hover: hover) and (pointer: fine) {
+  #mobile-controls {
+    display: none;
+  }
+}
+/* Hide WASD HUD on mobile */
+@media (hover: none) and (pointer: coarse) {
+  #hud {
+    display: none;
+  }
+}
