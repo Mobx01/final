@@ -317,15 +317,26 @@ window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 /* =========================
    CAMERA ROTATION (MOUSE)
 ========================= */
-let yaw = 0, pitch = 0, mouseDown = false;
+/* =========================
+   CAMERA ROTATION (SMOOTH)
+========================= */
+let yaw = 0, pitch = 0;
+let targetYaw = 0, targetPitch = 0;
+let yawVel = 0, pitchVel = 0;
+let mouseDown = false;
+
+const cameraPos = new THREE.Vector3();
+const cameraVel = new THREE.Vector3();
+
 window.addEventListener('mousedown', () => mouseDown = true);
 window.addEventListener('mouseup', () => mouseDown = false);
 window.addEventListener('mousemove', e => {
   if (!mouseDown) return;
-  yaw -= e.movementX * 0.008;
-  pitch -= e.movementY * 0.002;
-  pitch = THREE.MathUtils.clamp(pitch, -0.6, 0.4);
+  targetYaw   -= e.movementX * 0.008;
+  targetPitch -= e.movementY * 0.002;
+  targetPitch = THREE.MathUtils.clamp(targetPitch, -0.6, 0.4);
 });
+
 
 /* =========================
    MOBILE JOYSTICK
@@ -377,9 +388,11 @@ window.addEventListener('touchstart', e => {
 window.addEventListener('touchmove', e => {
   if (!touchLook) return;
   const t = e.touches[0];
-  yaw -= (t.clientX - lastTouch.x) * 0.005;
-  pitch -= (t.clientY - lastTouch.y) * 0.003;
-  pitch = THREE.MathUtils.clamp(pitch, -0.6, 0.4);
+
+  targetYaw   -= (t.clientX - lastTouch.x) * 0.005;
+  targetPitch -= (t.clientY - lastTouch.y) * 0.003;
+  targetPitch = THREE.MathUtils.clamp(targetPitch, -0.6, 0.4);
+
   lastTouch.set(t.clientX, t.clientY);
 });
 
@@ -390,11 +403,52 @@ window.addEventListener('touchend', () => {
 /* =========================
    CAMERA FOLLOW
 ========================= */
-const cameraOffset = new THREE.Vector3();
-function updateCamera() {
-  cameraOffset.set(Math.sin(yaw) * 8, 3 + pitch * 2, Math.cos(yaw) * 8);
-  camera.position.lerp(character.position.clone().add(cameraOffset), 0.1);
-  camera.lookAt(character.position.clone().add(new THREE.Vector3(0, 1.5, 0)));
+/* =========================
+   CAMERA FOLLOW (SMOOTH)
+========================= */
+function updateCamera(delta) {
+  // Smooth yaw / pitch
+  const ROT_DAMP = 10;
+
+  yawVel   += (targetYaw - yaw) * ROT_DAMP * delta;
+  pitchVel += (targetPitch - pitch) * ROT_DAMP * delta;
+
+  yawVel   *= 0.85;
+  pitchVel *= 0.85;
+
+  yaw   += yawVel;
+  pitch += pitchVel;
+
+  // Desired camera position
+const CAMERA_DISTANCE = 5.5;   // ⬅ lower = closer
+const CAMERA_HEIGHT   = 2.2;   // ⬅ lower = lower camera
+
+const desiredOffset = new THREE.Vector3(
+  Math.sin(yaw) * CAMERA_DISTANCE,
+  CAMERA_HEIGHT + pitch * 1.5,
+  Math.cos(yaw) * CAMERA_DISTANCE
+);
+
+
+  const desiredPos = character.position.clone().add(desiredOffset);
+
+  // Smooth follow (spring motion)
+  const POS_DAMP = 15;
+
+  cameraVel.addScaledVector(
+    desiredPos.clone().sub(cameraPos),
+    POS_DAMP * delta
+  );
+
+  cameraVel.multiplyScalar(0.8);
+  cameraPos.addScaledVector(cameraVel, delta);
+
+  camera.position.copy(cameraPos);
+  camera.lookAt(
+    character.position.x,
+    character.position.y + 1.5,
+    character.position.z
+  );
 }
 
 /* =========================
@@ -549,7 +603,7 @@ if (moveDir.lengthSq()) {
   character.position.y = 0;
   followCircle.position.set(character.position.x, 49, character.position.z);
 
-  updateCamera();
+  updateCamera(delta);
 
   minimapCamera.position.x = character.position.x;
   minimapCamera.position.z = character.position.z;
