@@ -36,9 +36,7 @@ minimapCamera.lookAt(0, 0, 0);
 /* =========================
    LIGHTS
 ========================= */
-const light =  new THREE.AmbientLight(0xffffff,0.8);
-light.position.set(0,45,0);
-
+const light = new THREE.AmbientLight(0xffffff, 0.8);
 scene.add(light);
 
 /* =========================
@@ -116,7 +114,7 @@ const followCircle = new THREE.Mesh(
   })
 );
 followCircle.rotation.x = -Math.PI / 2;
-followCircle.position.set(0,100,0);
+followCircle.position.set(0, 100, 0);
 scene.add(followCircle);
 
 followCircle.add(new THREE.LineSegments(
@@ -152,19 +150,17 @@ loader.load('public/models/finalmainmodel.glb', gltf => {
 
   currentAction = actions.idle;
   currentAction?.play();
-
-  console.log('Animations:', Object.keys(actions));
 });
 
 /* =========================
-   INPUT
+   INPUT (KEYBOARD)
 ========================= */
 const keys = {};
 window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
 window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
 /* =========================
-   CAMERA ROTATION
+   CAMERA ROTATION (MOUSE)
 ========================= */
 let yaw = 0, pitch = 0, mouseDown = false;
 window.addEventListener('mousedown', () => mouseDown = true);
@@ -174,6 +170,72 @@ window.addEventListener('mousemove', e => {
   yaw -= e.movementX * 0.008;
   pitch -= e.movementY * 0.002;
   pitch = THREE.MathUtils.clamp(pitch, -0.6, 0.4);
+});
+
+/* =========================
+   MOBILE JOYSTICK
+========================= */
+let joyActive = false;
+let joyStart = new THREE.Vector2();
+let joyDelta = new THREE.Vector2();
+let joyVector = new THREE.Vector2();
+
+const joystick = document.getElementById('joystick');
+const stick = joystick.querySelector('.stick');
+
+joystick.addEventListener('touchstart', e => {
+  joyActive = true;
+  const t = e.touches[0];
+  joyStart.set(t.clientX, t.clientY);
+});
+
+joystick.addEventListener('touchmove', e => {
+  if (!joyActive) return;
+  const t = e.touches[0];
+  joyDelta.set(t.clientX - joyStart.x, t.clientY - joyStart.y);
+
+  const max = 40;
+  joyDelta.clampLength(0, max);
+  stick.style.transform = `translate(${joyDelta.x - 25}px, ${joyDelta.y - 25}px)`;
+
+  joyVector.set(joyDelta.x / max, joyDelta.y / max);
+});
+
+joystick.addEventListener('touchend', () => {
+  joyActive = false;
+  joyDelta.set(0, 0);
+  joyVector.set(0, 0);
+  stick.style.transform = `translate(-50%, -50%)`;
+});
+
+/* =========================
+   MOBILE CAMERA TOUCH
+========================= */
+let touchLook = false;
+let lastTouch = new THREE.Vector2();
+
+window.addEventListener('touchstart', e => {
+  if (e.target.closest('#joystick')) return;
+  touchLook = true;
+  lastTouch.set(e.touches[0].clientX, e.touches[0].clientY);
+});
+
+window.addEventListener('touchmove', e => {
+  if (!touchLook) return;
+
+  const t = e.touches[0];
+  const dx = t.clientX - lastTouch.x;
+  const dy = t.clientY - lastTouch.y;
+
+  yaw -= dx * 0.005;
+  pitch -= dy * 0.003;
+  pitch = THREE.MathUtils.clamp(pitch, -0.6, 0.4);
+
+  lastTouch.set(t.clientX, t.clientY);
+});
+
+window.addEventListener('touchend', () => {
+  touchLook = false;
 });
 
 /* =========================
@@ -259,10 +321,18 @@ function animate() {
   const camRight = new THREE.Vector3().crossVectors(camDir, new THREE.Vector3(0, 1, 0));
   const moveDir = new THREE.Vector3();
 
+  // Keyboard
   if (keys.w) moveDir.add(camDir);
   if (keys.s) moveDir.sub(camDir);
   if (keys.a) moveDir.sub(camRight);
   if (keys.d) moveDir.add(camRight);
+
+  // Mobile joystick
+  if (joyVector.lengthSq() > 0.01) {
+    moveDir
+      .addScaledVector(camDir, -joyVector.y)
+      .addScaledVector(camRight, joyVector.x);
+  }
 
   let nextAction = actions.idle;
 
@@ -280,7 +350,7 @@ function animate() {
   }
 
   character.position.y = 0;
-  followCircle.position.set(character.position.x,49,character.position.z);
+  followCircle.position.set(character.position.x, 49, character.position.z);
 
   updateCamera();
 
