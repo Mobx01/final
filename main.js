@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CSM } from 'three/addons/csm/CSM.js';
-
+//import stars from "./public/models/stars.jpeg";
 /* =========================
    SCENE
 ========================= */
@@ -13,7 +13,12 @@ const scene = new THREE.Scene();
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setClearColor(0x87ceeb);
+//renderer.setClearColor(0x000000);
+const textureloader = new THREE.TextureLoader();
+//scene.background = textureloader.load("public/models/ai_Ahouba.jpeg");
+//onst cubeTexturloader = new THREE.CubeTextureLoader();
+const axeshelper = new THREE.AxesHelper();
+scene.add(axeshelper);
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
@@ -128,7 +133,7 @@ minimapCamera.lookAt(0, 0, 0);
 /* =========================
    LIGHTS
 ========================= */
-const light = new THREE.AmbientLight(0xffffff, 0.8);
+const light = new THREE.AmbientLight(0xfff2cc, 1.2);
 scene.add(light);
 
 /* =========================
@@ -145,7 +150,7 @@ function enableCSM() {
     mode: 'practical',
     parent: scene,
     shadowMapSize: 2048,
-    lightDirection: new THREE.Vector3(-1, -1, -1),
+    lightDirection: new THREE.Vector3(-1, -1, 1),
     camera
   });
 
@@ -219,33 +224,105 @@ function tryStartGame() {
 /* =========================
    WORLD
 ========================= */
-loader.load('public/models/scene223.glb', gltf => {
+const skyGeo = new THREE.SphereGeometry(4,60,40);
+const skyMat = new THREE.MeshBasicMaterial({
+  map: textureloader.load("public/models/nightsky1.jpg"),
+  side: THREE.BackSide
+});
+const sky = new THREE.Mesh(skyGeo, skyMat);
+scene.add(sky);
+sky.position.set(0,-1,0);
+sky.scale.set(100,100,100);
+sky.rotation.x = Math.PI/3;
+sky.rotation.z = Math.PI/3;
+sky.rotation.y = Math.PI/2;
+const BLOCKED_NAMES = new Set([
+  
+  "Object_35",
+  "Object_43",
+  "Object_47",
+  "Object_15",
+  
+  
+  "Object_79",
+  
+]);
+
+const blockedBoxes = []; // { box: THREE.Box3, name: string }
+/*function showBlockedDebug() {
+  blockedBoxes.forEach(b => {
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    b.box.getSize(size);
+    b.box.getCenter(center);
+
+    const helper = new THREE.Box3Helper(b.box, 0xff0000);
+    scene.add(helper);
+  });
+}*/
+
+// call after basemodel loads
+
+
+loader.load('public/models/basemodel.glb', gltf => {
+  scene.add(gltf.scene);
+  gltf.scene.position.set(0, 2.83, 0);
+  gltf.scene.updateMatrixWorld(true); // 🔥 IMPORTANT
+
   gltf.scene.traverse(o => {
     if (o.isMesh) {
       o.castShadow = false;
       o.receiveShadow = false;
       if (csm) csm.setupMaterial(o.material);
+
+      if (BLOCKED_NAMES.has(o.name)) {
+        const box = new THREE.Box3().setFromObject(o);
+        blockedBoxes.push({ box, name: o.name });
+        console.log("Blocked collider added:", o.name);
+      }
     }
   });
-  scene.add(gltf.scene);
+
+  //showBlockedDebug(); // ✅ move this HERE
 });
 
-loader.load('public/models/death_note.glb', gltf => {
-  const base = gltf.scene;
-  base.position.set(10, -35, 5);
-  base.scale.set(1.5, 1.5, 1.5);
-  base.rotation.y = Math.PI / 4 + Math.PI / 2;
-  scene.add(base);
-});
+
+
+const playerBox = new THREE.Box3();
+const PLAYER_RADIUS = 0.6;
+const PLAYER_HEIGHT = 2.0;
+
+function wouldCollide(nextPos) {
+  playerBox.min.set(
+    nextPos.x - PLAYER_RADIUS,
+    nextPos.y,
+    nextPos.z - PLAYER_RADIUS
+  );
+  playerBox.max.set(
+    nextPos.x + PLAYER_RADIUS,
+    nextPos.y + PLAYER_HEIGHT,
+    nextPos.z + PLAYER_RADIUS
+  );
+
+  for (let i = 0; i < blockedBoxes.length; i++) {
+    if (playerBox.intersectsBox(blockedBoxes[i].box)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+
+
 
 /* =========================
    MAP BOUNDARIES (ZERO FPS)
 ========================= */
 const MAP_BOUNDS = {
-  minX: -155,
-  maxX:  120,
+  minX: -145,
+  maxX:  180,
   minZ: -80,
-  maxZ:  160,
+  maxZ:  240,
 };
 
 
@@ -551,8 +628,8 @@ function addBoundaryHelper() {
   );
 
   scene.add(boundaryHelper);
-}*/
-
+}
+*/
 /* =========================
    ANIMATE
 ========================= */
@@ -584,10 +661,16 @@ function animate() {
 
 if (moveDir.lengthSq()) {
   moveDir.normalize();
-  character.position.addScaledVector(moveDir, delta * 20);
+const speed = 20 * delta;
+const nextPos = character.position.clone().addScaledVector(moveDir, speed);
 
-  // 🔒 Clamp inside map
-  clampCharacterPosition();
+if (!wouldCollide(nextPos)) {
+  character.position.copy(nextPos);
+}
+
+// 🔒 Clamp inside map
+clampCharacterPosition();
+
 
   character.rotation.y = Math.atan2(moveDir.x, moveDir.z);
   nextAction = actions.running;
