@@ -338,7 +338,7 @@ scene.add(character);
 const followCircle = new THREE.Mesh(
   new THREE.CircleGeometry(2),
   new THREE.MeshBasicMaterial({
-    color: 0x32CD32,
+    color: 0x0D00FF,
     transparent: true,
     opacity: 0.6,
     side: THREE.DoubleSide,
@@ -602,6 +602,92 @@ function clampCharacterPosition() {
     Math.min(MAP_BOUNDS.maxZ, character.position.z)
   );
 }
+/* =========================
+   INTERACTION UI HOOKS
+========================= */
+const interactPrompt = document.getElementById("interactPrompt");
+const popupOverlay = document.getElementById("missionPopupOverlay");
+const popupTitle = document.getElementById("missionTitle");
+const popupContent = document.getElementById("missionContent");
+const closePopupBtn = document.getElementById("closePopup");
+const popupButtons = document.querySelectorAll(".popup-btn");
+
+const INTERACT_DISTANCE = 3.5;
+let activeMission = null;
+
+/* =========================
+   MISSION CONTENT (EDITABLE)
+========================= */
+const missionContentData = {
+  events: "Welcome to Ahouba Events!<br>Explore upcoming fests, tech meets, and concerts.",
+  glimpses: "Relive memories from past Ahouba editions.<br>Photos and videos coming soon.",
+  sponsors: "Our proud sponsors:<br>Company A<br>Company B<br>Company C",
+  about: "Ahouba is a cultural-tech fest celebrating creativity and innovation.",
+  etc: "More features coming soon. Stay tuned!"
+};
+
+/* =========================
+   PROXIMITY CHECK
+========================= */
+function checkMissionProximity() {
+  activeMission = null;
+
+  for (let i = 0; i < missionStops.length; i++) {
+    const stop = missionStops[i];
+    const dist = stop.group.position.distanceTo(character.position);
+
+    if (dist < INTERACT_DISTANCE) {
+      activeMission = i;
+      break;
+    }
+  }
+
+  interactPrompt.style.display = activeMission !== null ? "block" : "none";
+}
+
+/* =========================
+   POPUP CONTROL
+========================= */
+function openMissionPopup() {
+  popupTitle.textContent = "Ahouba Mission Hub";
+  popupContent.innerHTML = "Choose an option below:";
+  popupOverlay.style.display = "flex";
+}
+
+function closeMissionPopup() {
+  popupOverlay.style.display = "none";
+}
+
+/* =========================
+   INPUT HANDLERS
+========================= */
+window.addEventListener("keydown", e => {
+  if (e.key.toLowerCase() === "e" && activeMission !== null) {
+    openMissionPopup();
+  }
+});
+
+interactPrompt.addEventListener("click", () => {
+  if (activeMission !== null) {
+    openMissionPopup();
+  }
+});
+
+closePopupBtn.addEventListener("click", closeMissionPopup);
+
+popupOverlay.addEventListener("click", e => {
+  if (e.target === popupOverlay) closeMissionPopup();
+});
+
+/* =========================
+   POPUP BUTTON LOGIC
+========================= */
+popupButtons.forEach(btn => {
+  btn.addEventListener("click", () => {
+    const key = btn.dataset.action;
+    popupContent.innerHTML = missionContentData[key] || "No content assigned.";
+  });
+});
 
 
 /* =========================
@@ -687,6 +773,9 @@ clampCharacterPosition();
   followCircle.position.set(character.position.x, 49, character.position.z);
 
   updateCamera(delta);
+    // 🔔 Mission interaction check
+  checkMissionProximity();
+
 
   minimapCamera.position.x = character.position.x;
   minimapCamera.position.z = character.position.z;
@@ -707,6 +796,7 @@ clampCharacterPosition();
   minimapRenderer.render(scene, minimapCamera);
 }
 //addBoundaryHelper();
+
 
 applyQualitySettings();
 animate();
