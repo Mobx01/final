@@ -209,8 +209,8 @@
 #missionPopup {
   display:flex;
   flex-direction: column;
-  width: 90vw;
-  height: 80vh;
+  
+  height: auto;
   background: #111;
   border: 2px solid #ff66ff;
   border-radius: 14px;
@@ -220,6 +220,11 @@
   text-align: center;
   box-shadow: 0 0 25px rgba(255,102,255,0.6);
   animation: popupIn 0.25s ease-out;
+  max-width: 1100px;
+  width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto; 
+  overflow: hidden;  /* ✅ scroll if needed */
 }
 
 @keyframes popupIn {
@@ -237,6 +242,7 @@
   line-height: 1.4;
   margin-bottom: 14px;
   min-height: 60px;
+  flex-shrink: 0;
 }
 
 /* ===== POPUP BUTTONS ===== */
@@ -286,15 +292,23 @@
 
 /* ===== CLOSE BUTTON ===== */
 #closePopup {
-  margin-top: 8px;
-  padding: 8px 16px;
+  position: sticky;
+  bottom: 15px;
+
+  margin-top: auto;
+  padding: 10px 18px;
+
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
+
   background: #ff66ff;
-  color: #000;
+  color: black;
   font-weight: bold;
+  flex-shrink: 0;
+  z-index: 10;
 }
+
 #minimap {
   transition: all 0.3s ease;
   cursor: pointer;
@@ -357,31 +371,31 @@
 
 .hero-gallery {
   width: 100%;
-  
-  height: 65vh;
+  max-width: 1100px;
+  height: auto;
   margin: 20px auto;
   position: relative;
-  top:50px;
+  padding: 15px;
   
+  flex:1;
+  overflow:hidden;
   display: none; /* hidden until mission needs it */
 }
 
 .gallery-track {
   display: flex;
-  align-items: center;
   justify-content: center;
-  gap: 12px;
-  transition: transform 0.4s ease;
+  align-items: center;
+  gap: clamp(8px, 2vw, 18px);
 }
+
 
 .gallery-item {
-  flex-shrink: 0;
-  border-radius: 14px;
+  border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 0 15px rgba(255, 102, 255, 0.5);
-  transition: all 0.35s ease;
+  transition: all 0.4s ease;
+  flex-shrink: 0;
 }
-
 /* Small posters */
 
 
@@ -392,7 +406,7 @@
 .gallery-item img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;   
 }
 
 /* Buttons */
@@ -428,21 +442,21 @@
 
 /* Hero comes up */
 .gallery-item.hero {
-  width: 50vw;
-  height: 50vh;
+  width: min(85vw, 650px);
+  height: min(55vh, 420px);
+
+  transform: scale(1.05);
   opacity: 1;
-  transform: scale(1.15) translateY(-15px);
   z-index: 5;
-  object-fit: cover;
 }
 
 /* Side posters go below */
 .gallery-item.small {
-  width: 85px;
-  height: 120px;
+  width: clamp(60px, 12vw, 120px);
+  height: clamp(90px, 18vh, 160px);
+
   opacity: 0.45;
-  transform: scale(0.85) translateY(20px);
-  z-index: 1;
+  transform: translateY(15px);
 }
 
 /* Smooth transition */
@@ -466,3 +480,41 @@
   }
 }
 
+/* ===========================
+   MOBILE OPTIMIZATION
+=========================== */
+
+@media (max-width: 600px) {
+
+  .gallery-item.hero {
+    width: 92vw;
+    height: 42vh;
+  }
+
+  .gallery-item.small {
+    width: 55px;
+    height: 80px;
+  }
+
+  .gallery-btn {
+    font-size: 18px;
+    padding: 8px;
+  }
+}
+
+/* ===========================
+   LARGE SCREEN OPTIMIZATION
+=========================== */
+
+@media (min-width: 1200px) {
+
+  .gallery-item.hero {
+    width: 700px;
+    height: 450px;
+  }
+
+  .gallery-item.small {
+    width: 140px;
+    height: 190px;
+  }
+}
