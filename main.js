@@ -666,6 +666,15 @@ window.addEventListener("keydown", e => {
     openMissionPopup();
   }
 });
+interactPrompt.addEventListener("touchstart", (e) => {
+  e.preventDefault();
+  if (activeMission !== null) {
+    openMissionPopup();
+  }
+});
+if (activeMission !== null && window.innerWidth < 768) {
+  interactPrompt.innerHTML = "Tap to Interact";
+}
 
 interactPrompt.addEventListener("click", () => {
   if (activeMission !== null) {
@@ -689,6 +698,12 @@ popupButtons.forEach(btn => {
   });
 });
 
+popupButtons.forEach(btn => {
+  btn.addEventListener("touchstart", () => {
+    const key = btn.dataset.action;
+    popupContent.innerHTML = missionContentData[key] || "No content assigned.";
+  });
+});
 
 /* =========================
    BOUNDARY DEBUG HELPER

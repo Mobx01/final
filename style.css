@@ -262,6 +262,13 @@
   border-color: #ff66ff;
   transform: scale(1.05);
 }
+#mobile-controls {
+  z-index: 1100;
+}
+#missionPopupOverlay {
+  z-index: 3000;
+  pointer-events: auto;
+}
 
 /* ===== CLOSE BUTTON ===== */
 #closePopup {
