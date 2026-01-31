@@ -1,27 +1,22 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CSM } from 'three/addons/csm/CSM.js';
-//import stars from "./public/models/stars.jpeg";
+
 /* =========================
-   SCENE
+   SCENE SETUP
 ========================= */
 const scene = new THREE.Scene();
 
-/* =========================
-   RENDERERS
-========================= */
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-
+// RENDERER
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
 renderer.setSize(window.innerWidth, window.innerHeight);
-//renderer.setClearColor(0x000000);
-const textureloader = new THREE.TextureLoader();
-//scene.background = textureloader.load("public/models/ai_Ahouba.jpeg");
-//onst cubeTexturloader = new THREE.CubeTextureLoader();
-const axeshelper = new THREE.AxesHelper();
-scene.add(axeshelper);
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
+const textureloader = new THREE.TextureLoader();
+
+// MINIMAP RENDERER
 const minimapContainer = document.getElementById('minimap');
 const minimapRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 minimapRenderer.setSize(minimapContainer.clientWidth, minimapContainer.clientHeight);
@@ -29,26 +24,23 @@ minimapRenderer.setPixelRatio(window.devicePixelRatio);
 minimapContainer.appendChild(minimapRenderer.domElement);
 
 /* =========================
-   DYNAMIC QUALITY (FPS BASED)
+   DYNAMIC QUALITY
 ========================= */
 let QUALITY = "medium";
 let qualityLocked = false;
 
 function applyQualitySettings() {
   console.log("Applying quality:", QUALITY);
-
   if (QUALITY === "low") {
     renderer.setPixelRatio(1);
     renderer.shadowMap.enabled = false;
     disableCSM();
   }
-
   if (QUALITY === "medium") {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.shadowMap.enabled = false;
     disableCSM();
   }
-
   if (QUALITY === "high") {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
@@ -57,7 +49,7 @@ function applyQualitySettings() {
 }
 
 /* =========================
-   FPS MEASUREMENT
+   FPS
 ========================= */
 let fpsSamples = [];
 let lastTime = performance.now();
@@ -67,64 +59,52 @@ function measureFPS() {
   const now = performance.now();
   const delta = now - lastTime;
   lastTime = now;
-
   const fps = 1000 / delta;
   fpsSamples.push(fps);
   if (fpsSamples.length > 60) fpsSamples.shift();
-
   avgFPS = fpsSamples.reduce((a, b) => a + b, 0) / fpsSamples.length;
 }
 
-/* =========================
-   FPS DISPLAY
-========================= */
 const hud = document.createElement("div");
 hud.style.position = "fixed";
 hud.style.top = "10px";
 hud.style.left = "10px";
-hud.style.padding = "6px 10px";
-hud.style.background = "rgba(0,0,0,0.6)";
-hud.style.color = "#0f0";
-hud.style.font = "12px monospace";
+hud.style.padding = "8px 12px";
+hud.style.background = "rgba(0,0,0,0.7)";
+hud.style.color = "#00f0ff";
+hud.style.font = "13px monospace";
 hud.style.zIndex = "9999";
+hud.style.pointerEvents = "none";
+hud.style.borderRadius = "6px";
+hud.style.border = "1px solid rgba(0,240,255,0.3)";
+hud.style.backdropFilter = "blur(5px)";
 document.body.appendChild(hud);
 
 setInterval(() => {
   hud.innerHTML = `FPS: ${avgFPS.toFixed(1)}<br>Quality: ${QUALITY}`;
 }, 500);
 
-/* =========================
-   AUTO QUALITY CONTROLLER
-========================= */
 setInterval(() => {
   if (qualityLocked) return;
-
-  console.log("Avg FPS:", avgFPS.toFixed(1), "Quality:", QUALITY);
-
   if (avgFPS < 28) {
     if (QUALITY === "high") QUALITY = "medium";
     else if (QUALITY === "medium") QUALITY = "low";
     applyQualitySettings();
     return;
   }
-
   if (avgFPS > 55) {
     if (QUALITY === "low") QUALITY = "medium";
     else if (QUALITY === "medium") QUALITY = "high";
     applyQualitySettings();
     return;
   }
-
-  if (avgFPS > 45 && avgFPS < 55) {
-    qualityLocked = true;
-    console.log("Quality locked at:", QUALITY);
-  }
+  if (avgFPS > 45 && avgFPS < 55) qualityLocked = true;
 }, 3000);
 
 /* =========================
    CAMERAS
 ========================= */
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
 const minimapCamera = new THREE.OrthographicCamera(-20, 20, 20, -20, 0.1, 500);
 minimapCamera.position.set(0, 50, 0);
 minimapCamera.up.set(0, 0, -1);
@@ -133,33 +113,38 @@ minimapCamera.lookAt(0, 0, 0);
 /* =========================
    LIGHTS
 ========================= */
-const light = new THREE.AmbientLight(0xfff2cc, 1.2);
-scene.add(light);
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0xff2fd5, 1.2); 
+scene.add(hemiLight);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
+dirLight.position.set(50, 100, 50);
+scene.add(dirLight);
+
+const backLight = new THREE.DirectionalLight(0x00f0ff, 0.8);
+backLight.position.set(-50, 20, -50);
+scene.add(backLight);
 
 /* =========================
    CSM SHADOWS
 ========================= */
 let csm = null;
-
 function enableCSM() {
   if (csm || QUALITY !== "high") return;
-
   csm = new CSM({
     maxFar: camera.far,
     cascades: 4,
     mode: 'practical',
     parent: scene,
     shadowMapSize: 2048,
-    lightDirection: new THREE.Vector3(-10, -10, 1),
+    lightDirection: new THREE.Vector3(-10, -10, 1).normalize(),
     camera
   });
-
   csm.lights.forEach(l => {
     l.shadow.bias = -0.0005;
     l.shadow.normalBias = 0.02;
+    l.intensity = 1.5;
   });
 }
-
 function disableCSM() {
   if (!csm) return;
   csm.dispose?.();
@@ -171,53 +156,34 @@ function disableCSM() {
 ========================= */
 const loadingContainer = document.querySelector('.progress-bar-container');
 const progressBar = document.getElementById('progress-bar');
-
 const loadingManager = new THREE.LoadingManager(
-  () => loadingContainer.style.display = 'none',
-  (url, loaded, total) => progressBar.value = (loaded / total) * 100
+  () => { /* handled in tryStartGame */ },
+  (url, loaded, total) => { if(progressBar) progressBar.value = (loaded / total) * 100; }
 );
-
 const loader = new GLTFLoader(loadingManager);
-/* =========================
-   START SCREEN / USER READY
-========================= */
+
 const startInstructions = document.createElement('p');
-startInstructions.innerHTML = `
-    Use W/A/S/D to move<br>
-    Mouse to look around<br>
-    Press ENTER or tap to start
-`;
-startInstructions.style.color = 'white';
+startInstructions.innerHTML = `Use W/A/S/D to move<br>Hold SHIFT to Sprint<br>Click to Look Around<br>Press ENTER to start`;
+startInstructions.style.color = 'var(--secondary, #00f0ff)';
 startInstructions.style.textAlign = 'center';
-startInstructions.style.fontFamily = 'sans-serif';
+startInstructions.style.fontFamily = 'inherit';
 startInstructions.style.marginTop = '10px';
-loadingContainer.appendChild(startInstructions);
+if(loadingContainer) loadingContainer.appendChild(startInstructions);
 
 let assetsLoaded = false;
 let userReady = false;
 
-// Event listeners for input
 document.addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    userReady = true;
-    tryStartGame();
-  }
+  if (e.key === 'Enter') { userReady = true; tryStartGame(); }
 });
 document.addEventListener('click', () => { userReady = true; tryStartGame(); });
 document.addEventListener('touchstart', () => { userReady = true; tryStartGame(); });
+loadingManager.onLoad = () => { assetsLoaded = true; tryStartGame(); };
 
-// Mark assets as loaded when the loading manager completes
-loadingManager.onLoad = () => {
-  assetsLoaded = true;
-  tryStartGame();
-};
-
-// Only start game if both user pressed and assets loaded
 function tryStartGame() {
-  if (assetsLoaded && userReady) {
+  if (assetsLoaded && userReady && loadingContainer.style.display !== 'none') {
     loadingContainer.style.display = 'none';
-    initGame();  // your game initialization (Three.js scene is already mostly setup)
-    animate();   // start render loop
+    animate(); 
   }
 }
 
@@ -226,105 +192,57 @@ function tryStartGame() {
 ========================= */
 const skyGeo = new THREE.SphereGeometry(4,60,40);
 const skyMat = new THREE.MeshBasicMaterial({
-  map: textureloader.load("public/models/nightsky1.jpg"),
-  side: THREE.BackSide
+  map: textureloader.load("public/models/nightsky1.jpg"), 
+  side: THREE.BackSide,
+  color: 0xffffff
 });
 const sky = new THREE.Mesh(skyGeo, skyMat);
 scene.add(sky);
 sky.position.set(0,-1,0);
 sky.scale.set(100,100,100);
-sky.rotation.x = Math.PI/3;
-sky.rotation.z = Math.PI/3;
-sky.rotation.y = Math.PI/2;
-const BLOCKED_NAMES = new Set([
-  
-  "Object_35",
-  "Object_43",
-  "Object_47",
-  "Object_15",
-  
-  
-  "Object_79",
-  
-]);
+sky.rotation.set(Math.PI/3, Math.PI/2, Math.PI/3);
 
-const blockedBoxes = []; // { box: THREE.Box3, name: string }
-/*function showBlockedDebug() {
-  blockedBoxes.forEach(b => {
-    const size = new THREE.Vector3();
-    const center = new THREE.Vector3();
-    b.box.getSize(size);
-    b.box.getCenter(center);
-
-    const helper = new THREE.Box3Helper(b.box, 0xff0000);
-    scene.add(helper);
-  });
-}*/
-
-// call after basemodel loads
-
+/* =========================
+   COLLISION
+========================= */
+const BLOCKED_NAMES = new Set(["Object_35", "Object_43", "Object_47", "Object_15", "Object_79"]);
+const blockedBoxes = [];
 
 loader.load('public/models/basemodel.glb', gltf => {
   scene.add(gltf.scene);
   gltf.scene.position.set(0, 2.83, 0);
-  gltf.scene.updateMatrixWorld(true); // 🔥 IMPORTANT
-
+  gltf.scene.updateMatrixWorld(true);
   gltf.scene.traverse(o => {
     if (o.isMesh) {
       o.castShadow = false;
       o.receiveShadow = false;
       if (csm) csm.setupMaterial(o.material);
-
       if (BLOCKED_NAMES.has(o.name)) {
         const box = new THREE.Box3().setFromObject(o);
         blockedBoxes.push({ box, name: o.name });
-        console.log("Blocked collider added:", o.name);
       }
     }
   });
-
-  //showBlockedDebug(); // ✅ move this HERE
 });
-
-
 
 const playerBox = new THREE.Box3();
 const PLAYER_RADIUS = 0.6;
 const PLAYER_HEIGHT = 2.0;
 
 function wouldCollide(nextPos) {
-  playerBox.min.set(
-    nextPos.x - PLAYER_RADIUS,
-    nextPos.y,
-    nextPos.z - PLAYER_RADIUS
-  );
-  playerBox.max.set(
-    nextPos.x + PLAYER_RADIUS,
-    nextPos.y + PLAYER_HEIGHT,
-    nextPos.z + PLAYER_RADIUS
-  );
-
+  playerBox.min.set(nextPos.x - PLAYER_RADIUS, nextPos.y, nextPos.z - PLAYER_RADIUS);
+  playerBox.max.set(nextPos.x + PLAYER_RADIUS, nextPos.y + PLAYER_HEIGHT, nextPos.z + PLAYER_RADIUS);
   for (let i = 0; i < blockedBoxes.length; i++) {
-    if (playerBox.intersectsBox(blockedBoxes[i].box)) {
-      return true;
-    }
+    if (playerBox.intersectsBox(blockedBoxes[i].box)) return true;
   }
   return false;
 }
 
-
-
-
-/* =========================
-   MAP BOUNDARIES (ZERO FPS)
-========================= */
-const MAP_BOUNDS = {
-  minX: -145,
-  maxX:  180,
-  minZ: -80,
-  maxZ:  240,
-};
-
+const MAP_BOUNDS = { minX: -145, maxX: 180, minZ: -80, maxZ: 240 };
+function clampCharacterPosition() {
+  character.position.x = Math.max(MAP_BOUNDS.minX, Math.min(MAP_BOUNDS.maxX, character.position.x));
+  character.position.z = Math.max(MAP_BOUNDS.minZ, Math.min(MAP_BOUNDS.maxZ, character.position.z));
+}
 
 /* =========================
    CHARACTER
@@ -332,31 +250,25 @@ const MAP_BOUNDS = {
 const character = new THREE.Object3D();
 scene.add(character);
 
-/* =========================
-   FOLLOW CIRCLE
-========================= */
 const followCircle = new THREE.Mesh(
-  new THREE.CircleGeometry(2),
-  new THREE.MeshBasicMaterial({
-    color: 0x0D00FF,
-    transparent: true,
-    opacity: 0.6,
-    side: THREE.DoubleSide,
-    depthWrite: false
-  })
+  new THREE.CircleGeometry(2.2),
+  new THREE.MeshBasicMaterial({ color: 0x0D00FF, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false })
 );
 followCircle.rotation.x = -Math.PI / 2;
-followCircle.position.set(0, 100, 0);
 scene.add(followCircle);
+
+const glowRing = new THREE.Mesh(
+  new THREE.RingGeometry(2.2, 2.8, 32),
+  new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.3, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
+);
+glowRing.rotation.x = -Math.PI / 2;
+scene.add(glowRing);
 
 followCircle.add(new THREE.LineSegments(
   new THREE.EdgesGeometry(followCircle.geometry),
-  new THREE.LineBasicMaterial({ color: 0x000000 })
+  new THREE.LineBasicMaterial({ color: 0x00ffff, linewidth: 2 })
 ));
 
-/* =========================
-   PLAYER MODEL + ANIMATIONS
-========================= */
 let mixer, currentAction;
 const actions = {};
 
@@ -364,7 +276,6 @@ loader.load('public/models/finalmainmodel.glb', gltf => {
   const soldier = gltf.scene;
   soldier.scale.set(0.97, 0.97, 0.97);
   soldier.position.y = -1;
-
   soldier.traverse(o => {
     if (o.isMesh) {
       o.castShadow = false;
@@ -372,87 +283,119 @@ loader.load('public/models/finalmainmodel.glb', gltf => {
       if (csm) csm.setupMaterial(o.material);
     }
   });
-
   character.add(soldier);
-
   mixer = new THREE.AnimationMixer(soldier);
   gltf.animations.forEach(clip => {
     actions[clip.name.toLowerCase()] = mixer.clipAction(clip);
   });
-
   currentAction = actions.idle;
   currentAction?.play();
 });
 
 /* =========================
-   INPUT (KEYBOARD)
+   PHYSICS & MOVEMENT (FIXED SKIDDING)
+========================= */
+const GRAVITY = -35;
+const JUMP_FORCE = 12;
+const WALK_SPEED = 8;
+const SPRINT_SPEED = 15;
+const ACCELERATION = 60; // Higher accel for snapping
+const DECELERATION = 40; // Higher friction to stop slide
+const AIR_CONTROL = 0.5;
+
+let velocity = new THREE.Vector3();
+let isGrounded = true;
+let isSprinting = false;
+
+/* =========================
+   INPUT HANDLING
 ========================= */
 const keys = {};
-window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+window.addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if (e.code === 'Space' && isGrounded) {
+    velocity.y = JUMP_FORCE;
+    isGrounded = false;
+  }
+});
 window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-/* =========================
-   CAMERA ROTATION (MOUSE)
-========================= */
-/* =========================
-   CAMERA ROTATION (SMOOTH)
-========================= */
-let yaw = Math.PI, pitch = 0;
-let targetYaw = Math.PI, targetPitch = 0;
-let yawVel = 0, pitchVel = 0;
-let mouseDown = false;
+function updateKeyVisuals() {
+    ['w', 'a', 's', 'd'].forEach(key => {
+        const el = document.getElementById(`key-${key}`);
+        if (el) {
+            if (keys[key]) el.classList.add('active');
+            else el.classList.remove('active');
+        }
+    });
+}
 
-const cameraPos = new THREE.Vector3();
-const cameraVel = new THREE.Vector3();
+/* =========================
+   CAMERA
+========================= */
+let yaw = Math.PI;
+let pitch = 0.35;
+let cameraDist = 7;
+const MIN_DIST = 3.0;
+const MAX_DIST = 12.0;
+const MOUSE_SENSITIVITY = 0.0022;
+const CAMERA_SMOOTHING = 18;
 
-window.addEventListener('mousedown', () => mouseDown = true);
-window.addEventListener('mouseup', () => mouseDown = false);
-window.addEventListener('mousemove', e => {
-  if (!mouseDown) return;
-  targetYaw   -= e.movementX * 0.008;
-  targetPitch -= e.movementY * 0.002;
-  targetPitch = THREE.MathUtils.clamp(targetPitch, -0.6, 0.4);
+let targetYaw = yaw;
+let targetPitch = pitch;
+
+renderer.domElement.addEventListener('click', () => {
+    if (popupOverlay && popupOverlay.style.display !== 'flex') {
+        document.body.requestPointerLock();
+    }
 });
 
+document.addEventListener('mousemove', e => {
+    if (document.pointerLockElement === document.body) {
+        targetYaw -= e.movementX * MOUSE_SENSITIVITY;
+        targetPitch -= e.movementY * MOUSE_SENSITIVITY;
+        targetPitch = THREE.MathUtils.clamp(targetPitch, -0.3, 1.3);
+    }
+});
+
+document.addEventListener('wheel', e => {
+    cameraDist += e.deltaY * 0.007;
+    cameraDist = THREE.MathUtils.clamp(cameraDist, MIN_DIST, MAX_DIST);
+}, { passive: true });
 
 /* =========================
-   MOBILE JOYSTICK
+   MOBILE
 ========================= */
 let joyActive = false;
 let joyStart = new THREE.Vector2();
 let joyDelta = new THREE.Vector2();
 let joyVector = new THREE.Vector2();
-
 const joystick = document.getElementById('joystick');
-const stick = joystick.querySelector('.stick');
+const stick = joystick?.querySelector('.stick');
 
-joystick.addEventListener('touchstart', e => {
-  joyActive = true;
-  const t = e.touches[0];
-  joyStart.set(t.clientX, t.clientY);
-});
+if (joystick) {
+  joystick.addEventListener('touchstart', e => {
+    joyActive = true;
+    const t = e.touches[0];
+    joyStart.set(t.clientX, t.clientY);
+  });
+  joystick.addEventListener('touchmove', e => {
+    if (!joyActive) return;
+    const t = e.touches[0];
+    joyDelta.set(t.clientX - joyStart.x, t.clientY - joyStart.y);
+    const max = 40;
+    joyDelta.clampLength(0, max);
+    if (stick) stick.style.transform = `translate(${joyDelta.x - 25}px, ${joyDelta.y - 25}px)`;
+    joyVector.set(joyDelta.x / max, joyDelta.y / max);
+  });
+  joystick.addEventListener('touchend', () => {
+    joyActive = false;
+    joyDelta.set(0, 0);
+    joyVector.set(0, 0);
+    if (stick) stick.style.transform = `translate(-50%, -50%)`;
+  });
+}
 
-joystick.addEventListener('touchmove', e => {
-  if (!joyActive) return;
-  const t = e.touches[0];
-  joyDelta.set(t.clientX - joyStart.x, t.clientY - joyStart.y);
-
-  const max = 40;
-  joyDelta.clampLength(0, max);
-  stick.style.transform = `translate(${joyDelta.x - 25}px, ${joyDelta.y - 25}px)`;
-  joyVector.set(joyDelta.x / max, joyDelta.y / max);
-});
-
-joystick.addEventListener('touchend', () => {
-  joyActive = false;
-  joyDelta.set(0, 0);
-  joyVector.set(0, 0);
-  stick.style.transform = `translate(-50%, -50%)`;
-});
-
-/* =========================
-   MOBILE CAMERA TOUCH
-========================= */
 let touchLook = false;
 let lastTouch = new THREE.Vector2();
 
@@ -461,623 +404,433 @@ window.addEventListener('touchstart', e => {
   touchLook = true;
   lastTouch.set(e.touches[0].clientX, e.touches[0].clientY);
 });
-
 window.addEventListener('touchmove', e => {
   if (!touchLook) return;
   const t = e.touches[0];
-
-  targetYaw   -= (t.clientX - lastTouch.x) * 0.005;
-  targetPitch -= (t.clientY - lastTouch.y) * 0.003;
-  targetPitch = THREE.MathUtils.clamp(targetPitch, -0.6, 0.4);
-
+  targetYaw -= (t.clientX - lastTouch.x) * 0.006;
+  targetPitch -= (t.clientY - lastTouch.y) * 0.004;
+  targetPitch = THREE.MathUtils.clamp(targetPitch, -0.3, 1.3);
   lastTouch.set(t.clientX, t.clientY);
 });
-
-window.addEventListener('touchend', () => {
-  touchLook = false;
-});
+window.addEventListener('touchend', () => { touchLook = false; });
 
 /* =========================
-   CAMERA FOLLOW
-========================= */
-/* =========================
-   CAMERA FOLLOW (SMOOTH)
+   UPDATE LOGIC
 ========================= */
 function updateCamera(delta) {
-  // Smooth yaw / pitch
-  const ROT_DAMP = 10;
+  yaw = THREE.MathUtils.lerp(yaw, targetYaw, CAMERA_SMOOTHING * delta);
+  pitch = THREE.MathUtils.lerp(pitch, targetPitch, CAMERA_SMOOTHING * delta);
+  const camOffset = new THREE.Vector3(Math.sin(yaw) * cameraDist, 2.8 + pitch * 2.2, Math.cos(yaw) * cameraDist);
+  const targetCamPos = character.position.clone().add(camOffset);
+  camera.position.lerp(targetCamPos, 12 * delta);
+  const lookTarget = character.position.clone();
+  lookTarget.y += 1.7;
+  camera.lookAt(lookTarget);
+}
 
-  yawVel   += (targetYaw - yaw) * ROT_DAMP * delta;
-  pitchVel += (targetPitch - pitch) * ROT_DAMP * delta;
+function updatePlayerMovement(delta) {
+  const camForward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+  const camRight = new THREE.Vector3().crossVectors(camForward, new THREE.Vector3(0, 1, 0));
+  
+  const inputDir = new THREE.Vector3();
+  if (keys.w) inputDir.add(camForward);
+  if (keys.s) inputDir.sub(camForward);
+  if (keys.a) inputDir.sub(camRight);
+  if (keys.d) inputDir.add(camRight);
 
-  yawVel   *= 0.85;
-  pitchVel *= 0.85;
+  if (joyVector.lengthSq() > 0.01) {
+    inputDir.addScaledVector(camForward, -joyVector.y);
+    inputDir.addScaledVector(camRight, joyVector.x);
+  }
 
-  yaw   += yawVel;
-  pitch += pitchVel;
+  isSprinting = keys.shift && inputDir.lengthSq() > 0;
+  const targetSpeed = isSprinting ? SPRINT_SPEED : WALK_SPEED;
+  
+  // Acceleration Logic
+  if (inputDir.lengthSq() > 0.001) {
+    inputDir.normalize();
+    const accel = isGrounded ? ACCELERATION : ACCELERATION * AIR_CONTROL;
+    
+    velocity.x += inputDir.x * accel * delta;
+    velocity.z += inputDir.z * accel * delta;
 
-  // Desired camera position
-const CAMERA_DISTANCE = 5.5;   // ⬅ lower = closer
-const CAMERA_HEIGHT   = 2.2;   // ⬅ lower = lower camera
+    // Cap speed
+    const hSpeed = Math.sqrt(velocity.x ** 2 + velocity.z ** 2);
+    if (hSpeed > targetSpeed) {
+      const scale = targetSpeed / hSpeed;
+      velocity.x *= scale;
+      velocity.z *= scale;
+    }
+  } else {
+    // Deceleration (Friction)
+    const decel = isGrounded ? DECELERATION : DECELERATION * AIR_CONTROL;
+    const hSpeed = Math.sqrt(velocity.x ** 2 + velocity.z ** 2);
+    const newHSpeed = Math.max(0, hSpeed - decel * delta);
+    const scale = hSpeed > 0 ? newHSpeed / hSpeed : 0;
+    velocity.x *= scale;
+    velocity.z *= scale;
+  }
 
-const desiredOffset = new THREE.Vector3(
-  Math.sin(yaw) * CAMERA_DISTANCE,
-  CAMERA_HEIGHT + pitch * 1.5,
-  Math.cos(yaw) * CAMERA_DISTANCE
-);
+  if (!isGrounded) velocity.y += GRAVITY * delta;
 
+  // Move
+  const nextPos = character.position.clone();
+  nextPos.x += velocity.x * delta;
+  nextPos.y += velocity.y * delta;
+  nextPos.z += velocity.z * delta;
 
-  const desiredPos = character.position.clone().add(desiredOffset);
+  if (!wouldCollide(nextPos)) {
+    character.position.copy(nextPos);
+  } else {
+    velocity.x = 0;
+    velocity.z = 0;
+  }
 
-  // Smooth follow (spring motion)
-  const POS_DAMP = 15;
+  clampCharacterPosition();
 
-  cameraVel.addScaledVector(
-    desiredPos.clone().sub(cameraPos),
-    POS_DAMP * delta
-  );
+  // Floor collision
+  if (character.position.y <= 0) {
+    character.position.y = 0;
+    velocity.y = 0;
+    isGrounded = true;
+  } else if (character.position.y > 0.1) {
+    isGrounded = false;
+  }
 
-  cameraVel.multiplyScalar(0.8);
-  cameraPos.addScaledVector(cameraVel, delta);
+  // ✅ ROTATION FIX: Rotate towards VELOCITY, not Input
+  // This prevents the "skidding" look because feet align with slide
+  const hSpeed = Math.sqrt(velocity.x ** 2 + velocity.z ** 2);
+  
+  if (hSpeed > 0.5) {
+      // 1. Calculate angle from velocity
+      const targetRot = Math.atan2(velocity.x, velocity.z);
+      
+      // 2. Smoothly rotate character
+      const rotDiff = ((targetRot - character.rotation.y + Math.PI) % (Math.PI * 2)) - Math.PI;
+      character.rotation.y += rotDiff * 15 * delta;
 
-  camera.position.copy(cameraPos);
-  camera.lookAt(
-    character.position.x,
-    character.position.y + 1.5,
-    character.position.z
-  );
+      // 3. Add "Banking" (Tilt into turn) for realism
+      if(character.children[0]) {
+          const tilt = -rotDiff * 0.5; // Lean magnitude
+          character.children[0].rotation.z = THREE.MathUtils.lerp(character.children[0].rotation.z, tilt, 10 * delta);
+      }
+  } else {
+      // Return to upright when stopped
+      if(character.children[0]) {
+           character.children[0].rotation.z = THREE.MathUtils.lerp(character.children[0].rotation.z, 0, 10 * delta);
+      }
+  }
+
+  // Animation State
+  let nextAction = actions.idle;
+  if (!isGrounded) nextAction = actions.jump || actions.idle;
+  else if (hSpeed > 0.5) nextAction = isSprinting ? (actions.sprint || actions.running) : actions.running;
+
+  if (nextAction && nextAction !== currentAction) {
+    currentAction?.fadeOut(0.12);
+    nextAction.reset().fadeIn(0.12).play();
+    currentAction = nextAction;
+  }
 }
 
 /* =========================
-   MISSION STOPS
+   MISSIONS
 ========================= */
 const missionStops = [];
-// ✅ Create Floating Label Sprite Above Pillar
-function createMissionLabel(text) {
 
+function createMissionLabel(text) {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
+  canvas.width = 512;
+  canvas.height = 256;
 
-  canvas.width = 256;
-  canvas.height = 128;
-
-  // Background
-  ctx.fillStyle = "rgba(0,0,0,0.6)";
+  const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  gradient.addColorStop(0, 'rgba(13, 0, 255, 0.6)');
+  gradient.addColorStop(1, 'rgba(0, 240, 255, 0.6)');
+  
+  ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  ctx.strokeStyle = 'rgba(255, 255, 255, 1)'; 
+  ctx.lineWidth = 10;
+  ctx.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
 
-  // Text
-  ctx.font = "bold 40px Arial";
+  ctx.font = "bold 60px Arial";
   ctx.fillStyle = "white";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(text.toUpperCase(), canvas.width / 2, canvas.height / 2);
 
-  // Texture from canvas
   const texture = new THREE.CanvasTexture(canvas);
-
-  // Sprite Material
-  const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
-
-  // Sprite
-  const sprite = new THREE.Sprite(spriteMaterial);
-
-  sprite.scale.set(6, 3, 1); // size in world
-
+  texture.colorSpace = THREE.SRGBColorSpace; 
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
+  sprite.scale.set(8, 4, 1);
   return sprite;
 }
-
 
 function createMissionStop(x, y, z, missionKey) {
   const group = new THREE.Group();
   group.position.set(x, y, z);
   scene.add(group);
-
   const enableGlow = QUALITY !== "low";
 
   const column = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.6, 0.6, 2, 16, 1, true),
-    new THREE.MeshBasicMaterial({
-      color: 0xff2fd5,
-      transparent: enableGlow,
-      opacity: enableGlow ? 0.35 : 1,
-      side: THREE.DoubleSide,
-      blending: enableGlow ? THREE.AdditiveBlending : THREE.NormalBlending,
-      depthWrite: false
+    new THREE.CylinderGeometry(0.7, 0.7, 2.5, 20, 1, true),
+    new THREE.MeshStandardMaterial({
+      color: 0xff2fd5, emissive: 0xff2fd5, emissiveIntensity: 3.0, transparent: true, opacity: 0.8, side: THREE.DoubleSide
     })
   );
 
   let glow = null;
   if (enableGlow) {
     glow = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.75, 0.75, 2.3, 16, 1, true),
+      new THREE.CylinderGeometry(1.0, 1.0, 3.0, 20, 1, true),
       new THREE.MeshBasicMaterial({
-        color: 0xff66ff,
-        transparent: true,
-        opacity: 0.25,
-        side: THREE.BackSide,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
+        color: 0xff66ff, transparent: true, opacity: 0.3, side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false
       })
     );
     group.add(glow);
   }
 
   const ring = new THREE.Mesh(
-    new THREE.RingGeometry(0.9, 1.3, 32),
+    new THREE.RingGeometry(1.0, 1.5, 40),
     new THREE.MeshBasicMaterial({
-      color: 0xff2fd5,
-      transparent: true,
-      opacity: 0.5,
-      side: THREE.DoubleSide,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false
+      color: 0xff2fd5, transparent: true, opacity: 0.9, side: THREE.DoubleSide, blending: THREE.AdditiveBlending
     })
   );
   ring.rotation.x = -Math.PI / 2;
-  ring.position.y = 0.02;
+  ring.position.y = 0.05;
 
-  group.add(column, ring);
-  // Floating Mission Name
-// ✅ Add floating label above pillar
-const labelSprite = createMissionLabel(missionKey);
-labelSprite.position.set(0, 6, 0); // height above pillar
-group.add(labelSprite);
+  const particleRing = new THREE.Mesh(
+    new THREE.RingGeometry(1.5, 1.8, 40),
+    new THREE.MeshBasicMaterial({
+      color: 0x00ffff, transparent: true, opacity: 0.6, side: THREE.DoubleSide, blending: THREE.AdditiveBlending
+    })
+  );
+  particleRing.rotation.x = -Math.PI / 2;
+  particleRing.position.y = 0.1;
 
-
-  missionStops.push({ group, column, glow, baseY: y, key: missionKey, label: labelSprite});
+  group.add(column, ring, particleRing);
+  const labelSprite = createMissionLabel(missionKey);
+  labelSprite.position.set(0, 7, 0);
+  group.add(labelSprite);
+  missionStops.push({ 
+    group, column, glow, ring, particleRing, baseY: y, key: missionKey, label: labelSprite
+  });
 }
 
 createMissionStop(50, 0, 49, "events");
 createMissionStop(-4, 0, -72, "sponsors");
-createMissionStop(-55,0,110, "glimpses");
-createMissionStop(60,0,170, "about");
-/*world boundaries*/
-function clampCharacterPosition() {
-  character.position.x = Math.max(
-    MAP_BOUNDS.minX,
-    Math.min(MAP_BOUNDS.maxX, character.position.x)
-  );
+createMissionStop(-55, 0, 110, "glimpses");
+createMissionStop(60, 0, 170, "about");
 
-  character.position.z = Math.max(
-    MAP_BOUNDS.minZ,
-    Math.min(MAP_BOUNDS.maxZ, character.position.z)
-  );
-}
 /* =========================
-   INTERACTION UI HOOKS
+   UI
 ========================= */
 const interactPrompt = document.getElementById("interactPrompt");
 const popupOverlay = document.getElementById("missionPopupOverlay");
 const popupTitle = document.getElementById("missionTitle");
 const popupContent = document.getElementById("missionContent");
 const closePopupBtn = document.getElementById("closePopup");
-const popupButtons = document.querySelectorAll(".popup-btn");
 
-const INTERACT_DISTANCE = 3.5;
+const INTERACT_DISTANCE = 4.0;
 let activeMission = null;
 
-/* =========================
-   MISSION CONTENT (EDITABLE)
-========================= */
 const missionContentData = {
-  events: "Welcome to Ahouba Events!<br>Explore upcoming fests, tech meets, and concerts.",
-  glimpses: "Relive memories from past Ahouba editions.<br>Photos and videos coming soon.",
-  sponsors: "Our proud sponsors:<br>Company A<br>Company B<br>Company C",
+  events: "Welcome to Ahouba Events!<br>Check out our latest tournaments below.",
+  glimpses: "Relive memories from past Ahouba editions.",
+  sponsors: "Our proud sponsors:<br>CubeTen Technologies<br>Times of Manipur",
   about: "Ahouba is a cultural-tech fest celebrating creativity and innovation.",
-  etc: "More features coming soon. Stay tuned!"
 };
 
-/* =========================
-   PROXIMITY CHECK
-========================= */
 function checkMissionProximity() {
   activeMission = null;
-
   for (let i = 0; i < missionStops.length; i++) {
     const stop = missionStops[i];
     const dist = stop.group.position.distanceTo(character.position);
-
     if (dist < INTERACT_DISTANCE) {
       activeMission = i;
       break;
     }
   }
-
-  interactPrompt.style.display = activeMission !== null ? "block" : "none";
-  if (activeMission !== null && window.innerWidth < 920) {
-  interactPrompt.innerHTML = "Tap to Interact";
-} else {
-  interactPrompt.innerHTML = "Press <b>E</b> or Tap to Interact";
+  if (interactPrompt) {
+    interactPrompt.style.display = activeMission !== null ? "block" : "none";
+    if (activeMission !== null) {
+      const isMobile = window.innerWidth < 920;
+      interactPrompt.innerHTML = isMobile ? "Tap to Interact" : "Press <b>E</b> to Interact";
+    }
+  }
 }
 
-}
-
-/* =========================
-   POPUP CONTROL
-========================= */
 function openMissionPopup() {
-
   if (activeMission === null) return;
-
-  // ✅ Get mission type of current stop
+  document.exitPointerLock();
   const missionKey = missionStops[activeMission].key;
-
-  // ✅ Title changes automatically
-  popupTitle.textContent = missionKey.toUpperCase();
-
-  // ✅ Load correct content automatically
-  popupContent.innerHTML =
-    missionContentData[missionKey] || "No content found.";
-
-  popupOverlay.style.display = "flex";
+  if (popupTitle) popupTitle.textContent = missionKey.toUpperCase();
+  if (popupContent) popupContent.innerHTML = missionContentData[missionKey] || "No content found.";
+  if (popupOverlay) popupOverlay.style.display = "flex";
+  setupGallery(missionKey);
 }
-
-
 function closeMissionPopup() {
-  popupOverlay.style.display = "none";
+  if (popupOverlay) popupOverlay.style.display = "none";
 }
-
-/* =========================
-   INPUT HANDLERS
-========================= */
 window.addEventListener("keydown", e => {
-  if (e.key.toLowerCase() === "e" && activeMission !== null) {
-    openMissionPopup();
-  }
+  if (e.key.toLowerCase() === "e" && activeMission !== null) openMissionPopup();
 });
-interactPrompt.addEventListener("touchstart", (e) => {
-  e.preventDefault();
-  if (activeMission !== null) {
-    openMissionPopup();
-  }
+if (interactPrompt) interactPrompt.addEventListener("click", () => {
+  if (activeMission !== null) openMissionPopup();
 });
-
-
-interactPrompt.addEventListener("click", () => {
-  if (activeMission !== null) {
-    openMissionPopup();
-  }
-});
-
-closePopupBtn.addEventListener("click", closeMissionPopup);
-
-popupOverlay.addEventListener("click", e => {
+if (closePopupBtn) closePopupBtn.addEventListener("click", closeMissionPopup);
+if (popupOverlay) popupOverlay.addEventListener("click", e => {
   if (e.target === popupOverlay) closeMissionPopup();
 });
 
 /* =========================
-   POPUP BUTTON LOGIC
+   GALLERY
 ========================= */
-popupButtons.forEach(btn => {
-  btn.addEventListener("click", () => {
-    const key = btn.dataset.action;
-    popupContent.innerHTML = missionContentData[key] || "No content assigned.";
-  });
-});
-
-popupButtons.forEach(btn => {
-  btn.addEventListener("touchstart", () => {
-    const key = btn.dataset.action;
-    popupContent.innerHTML = missionContentData[key] || "No content assigned.";
-  });
-});
-
-/* =========================
-   BOUNDARY DEBUG HELPER
-========================= 
-let boundaryHelper = null;
-
-function addBoundaryHelper() {
-  const width  = MAP_BOUNDS.maxX - MAP_BOUNDS.minX;
-  const depth  = MAP_BOUNDS.maxZ - MAP_BOUNDS.minZ;
-  const height = 5;
-
-  const geo = new THREE.BoxGeometry(width, height, depth);
-  const mat = new THREE.MeshBasicMaterial({
-    color: 0xff0000,
-    wireframe: true
-  });
-
-  boundaryHelper = new THREE.Mesh(geo, mat);
-  boundaryHelper.position.set(
-    (MAP_BOUNDS.minX + MAP_BOUNDS.maxX) / 2,
-    height / 2,
-    (MAP_BOUNDS.minZ + MAP_BOUNDS.maxZ) / 2
-  );
-
-  scene.add(boundaryHelper);
-}
-*/
-
-/* ==========================================
-   ✅ HERO POSTER GALLERY SYSTEM (APPEND ONLY)
-========================================== */
-
 const galleryBox = document.getElementById("missionGallery");
 const galleryTrack = document.getElementById("galleryTrack");
 const galleryPrev = document.getElementById("galleryPrev");
 const galleryNext = document.getElementById("galleryNext");
-
-/* ✅ Mission Galleries Data */
 const missionGalleryData = {
-  glimpses: [
-    "public/models/A3.jpg",
-    "public/models/Logo_Cubeten2.png",
-    "public/models/babinanew.jpg",
-    "public/models/codexp_logo",
-    "public/models/icici.jpg"
-  ],
-
-  events: [
-    "public/models/events.jpg",
-    "public/models/2.png",
-    "public/models/3.png",
-    "public/models/4.png",
-    "public/models/5.png",
-  ]
+  events: [ "1.jpg", "2.jpg", "3.jpg", "4.jpg" ],
+  glimpses: [ "public/models/A3.jpg", "public/models/Logo_Cubeten2.png" ],
+  sponsors: [],
+  about: []
 };
-
 let galleryIndex = 0;
 let activeGallery = [];
-
-/* ✅ Render Gallery View */
+function setupGallery(missionKey) {
+    if (missionGalleryData[missionKey] && missionGalleryData[missionKey].length > 0) {
+        if (galleryBox) galleryBox.style.display = "block";
+        activeGallery = missionGalleryData[missionKey];
+        galleryIndex = 0;
+        renderGallery();
+    } else {
+        if (galleryBox) galleryBox.style.display = "none";
+    }
+}
 function renderGallery() {
+  if (!galleryTrack) return;
   galleryTrack.innerHTML = "";
-
   if (activeGallery.length === 0) return;
-
-  // Left small
   const leftIndex = (galleryIndex - 1 + activeGallery.length) % activeGallery.length;
-  // Center hero
   const heroIndex = galleryIndex;
-  // Right small
   const rightIndex = (galleryIndex + 1) % activeGallery.length;
-
   const items = [
     { src: activeGallery[leftIndex], type: "small" },
     { src: activeGallery[heroIndex], type: "hero" },
     { src: activeGallery[rightIndex], type: "small" }
   ];
-items.forEach(item => {
-  const div = document.createElement("div");
-  div.className = `gallery-item ${item.type}`;
-
-  const img = document.createElement("img");
-  img.src = item.src;
-
-  div.appendChild(img);
-  galleryTrack.appendChild(div);
-
-  // ✅ Add pop animation only for hero
-  if (item.type === "hero") {
-    div.classList.add("gallery-pop");
-
-    setTimeout(() => {
-      div.classList.remove("gallery-pop");
-    }, 400);
-  }
-});
-
+  items.forEach(item => {
+    const div = document.createElement("div");
+    div.className = `gallery-item ${item.type}`;
+    const img = document.createElement("img");
+    img.src = item.src;
+    div.appendChild(img);
+    galleryTrack.appendChild(div);
+  });
 }
-
-/* ✅ Controls */
-galleryPrev.addEventListener("click", () => {
+if (galleryPrev) galleryPrev.addEventListener("click", () => {
   galleryIndex = (galleryIndex - 1 + activeGallery.length) % activeGallery.length;
   renderGallery();
 });
-
-galleryNext.addEventListener("click", () => {
+if (galleryNext) galleryNext.addEventListener("click", () => {
   galleryIndex = (galleryIndex + 1) % activeGallery.length;
   renderGallery();
 });
 
-/* ✅ Swipe Support (Mobile) */
-let startX = 0;
-
-galleryTrack.addEventListener("touchstart", e => {
-  startX = e.touches[0].clientX;
-});
-
-galleryTrack.addEventListener("touchend", e => {
-  let endX = e.changedTouches[0].clientX;
-  let diff = endX - startX;
-
-  if (diff > 50) galleryPrev.click();
-  if (diff < -50) galleryNext.click();
-});
-
-/* ==========================================
-   ✅ Hook Gallery Into Popup (APPEND ONLY)
-========================================== */
-
-const __oldOpenMissionPopup = openMissionPopup;
-
-openMissionPopup = function () {
-  __oldOpenMissionPopup();
-
-  if (activeMission === null) return;
-
-  const missionKey = missionStops[activeMission].key;
-
-  // Show gallery only if mission has images
-  if (missionGalleryData[missionKey]) {
-    galleryBox.style.display = "block";
-    activeGallery = missionGalleryData[missionKey];
-    galleryIndex = 0;
-    renderGallery();
-  } else {
-    galleryBox.style.display = "none";
-  }
-};
+/* =========================
+   FULLMAP
+========================= */
+const closeMapBtn = document.getElementById('closeMapBtn');
+const fullmapContainer = document.getElementById('fullmap');
+let isFullMapOpen = false;
+if (minimapContainer && fullmapContainer && closeMapBtn) {
+    minimapContainer.addEventListener('click', () => {
+        isFullMapOpen = true;
+        document.exitPointerLock();
+        fullmapContainer.style.display = 'flex';
+        closeMapBtn.style.display = 'block';
+        fullmapContainer.appendChild(minimapRenderer.domElement);
+        minimapRenderer.setSize(window.innerWidth, window.innerHeight);
+        const zoom = 100;
+        minimapCamera.left = -zoom; minimapCamera.right = zoom;
+        minimapCamera.top = zoom; minimapCamera.bottom = -zoom;
+        minimapCamera.updateProjectionMatrix();
+    });
+    closeMapBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isFullMapOpen = false;
+        fullmapContainer.style.display = 'none';
+        closeMapBtn.style.display = 'none';
+        minimapContainer.appendChild(minimapRenderer.domElement);
+        minimapRenderer.setSize(minimapContainer.clientWidth, minimapContainer.clientHeight);
+        minimapCamera.left = -20; minimapCamera.right = 20;
+        minimapCamera.top = 20; minimapCamera.bottom = -20;
+        minimapCamera.updateProjectionMatrix();
+    });
+}
 
 /* =========================
-   ANIMATE
+   MAIN LOOP
 ========================= */
 const clock = new THREE.Clock();
-
 function animate() {
   requestAnimationFrame(animate);
-
+  if (isFullMapOpen) {
+      renderer.render(scene, camera);
+      minimapRenderer.render(scene, minimapCamera);
+      return;
+  }
   measureFPS();
-
-  const delta = clock.getDelta();
-  mixer?.update(delta);
-
-  const camDir = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)).normalize();
-  const camRight = new THREE.Vector3().crossVectors(camDir, new THREE.Vector3(0, 1, 0));
-  const moveDir = new THREE.Vector3();
-
-  if (keys.w) moveDir.add(camDir);
-  if (keys.s) moveDir.sub(camDir);
-  if (keys.a) moveDir.sub(camRight);
-  if (keys.d) moveDir.add(camRight);
-
-  if (joyVector.lengthSq() > 0.01) {
-    moveDir.addScaledVector(camDir, -joyVector.y)
-           .addScaledVector(camRight, joyVector.x);
-  }
-
-  let nextAction = actions.idle;
-
-if (moveDir.lengthSq()) {
-  moveDir.normalize();
-const speed = 10 * delta;
-const nextPos = character.position.clone().addScaledVector(moveDir, speed);
-
-if (!wouldCollide(nextPos)) {
-  character.position.copy(nextPos);
-}
-
-// 🔒 Clamp inside map
-clampCharacterPosition();
-
-
-  character.rotation.y = Math.atan2(moveDir.x, moveDir.z);
-  nextAction = actions.running;
-}
-
-
-  if (nextAction && nextAction !== currentAction) {
-    currentAction.fadeOut(0.15);
-    nextAction.reset().fadeIn(0.15).play();
-    currentAction = nextAction;
-  }
-
-  character.position.y = 0;
-  followCircle.position.set(character.position.x, 49, character.position.z);
-
+  updateKeyVisuals();
+  const delta = Math.min(clock.getDelta(), 0.05);
+  
+  if (mixer) mixer.update(delta);
+  updatePlayerMovement(delta);
   updateCamera(delta);
-    // 🔔 Mission interaction check
   checkMissionProximity();
 
+  const pulseScale = 1 + Math.sin(performance.now() * 0.003) * 0.08;
+  followCircle.position.set(character.position.x, 49, character.position.z);
+  followCircle.scale.set(pulseScale, pulseScale, pulseScale);
+  glowRing.position.copy(followCircle.position);
+  glowRing.rotation.z += delta * 0.5;
+  glowRing.scale.set(pulseScale * 1.1, pulseScale * 1.1, pulseScale * 1.1);
 
   minimapCamera.position.x = character.position.x;
   minimapCamera.position.z = character.position.z;
   minimapCamera.lookAt(character.position.x, 0, character.position.z);
 
-  const t = performance.now() * 0.004;
-  missionStops.forEach(ms => {
-    ms.group.position.y = ms.baseY + Math.sin(t) * 0.25;
-    const pulse = QUALITY === "low" ? 1 : (Math.sin(t * 2) * 0.15 + 1);
-    ms.column.scale.set(pulse, 1, pulse);
-    if (ms.glow) ms.glow.scale.set(pulse * 1.2, 1, pulse * 1.2);
-    if (QUALITY !== "low") ms.group.rotation.y += 0.005;
+  const t = performance.now() * 0.003;
+  missionStops.forEach((ms, idx) => {
+    const offset = idx * 0.5;
+    ms.group.position.y = ms.baseY + Math.sin(t + offset) * 0.35;
+    if (QUALITY !== "low") {
+      ms.group.rotation.y += delta * 0.7;
+      if (ms.glow) {
+        ms.glow.rotation.y -= delta * 1.2;
+        ms.glow.material.opacity = 0.15 + Math.sin(t * 2 + offset) * 0.1;
+      }
+      if (ms.ring) ms.ring.rotation.z += delta * 0.3;
+      if (ms.particleRing) {
+        ms.particleRing.rotation.z -= delta * 0.8;
+        ms.particleRing.material.opacity = 0.3 + Math.sin(t * 3 + offset) * 0.15;
+      }
+    }
   });
 
   if (csm) csm.update();
-
   renderer.render(scene, camera);
   minimapRenderer.render(scene, minimapCamera);
 }
-//addBoundaryHelper();
-
-
-applyQualitySettings();
-animate();
-
-/* =========================
-   RESIZE
-========================= */
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  minimapRenderer.setSize(minimapContainer.clientWidth, minimapContainer.clientHeight);
+  if (minimapContainer && minimapRenderer) {
+    minimapRenderer.setSize(minimapContainer.clientWidth, minimapContainer.clientHeight);
+  }
 });
-
-/* =========================
-   MINIMAP FULLSCREEN PATCH (APPEND ONLY)
-========================= */
-
-const minimapContainer1 = document.getElementById('minimap');
-const fullmapContainer = document.getElementById('fullmap');
-const closeMapBtn = document.getElementById('closeMapBtn');
-
-let isFullMapOpen = false;
-
-if (minimapContainer1 && fullmapContainer && closeMapBtn) {
-
-  minimapContainer1.addEventListener('click', () => {
-    if (!minimapRenderer || !minimapCamera) return;
-
-    isFullMapOpen = true;
-
-    fullmapContainer.style.display = 'flex';
-    closeMapBtn.style.display = 'block';
-
-    fullmapContainer.appendChild(minimapRenderer.domElement);
-    minimapRenderer.setSize(window.innerWidth, window.innerHeight);
-
-    const zoom = 100;
-    minimapCamera.left = -zoom;
-    minimapCamera.right = zoom;
-    minimapCamera.top = zoom;
-    minimapCamera.bottom = -zoom;
-    minimapCamera.updateProjectionMatrix();
-  });
-
-  closeMapBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (!minimapRenderer || !minimapCamera) return;
-
-    isFullMapOpen = false;
-
-    fullmapContainer.style.display = 'none';
-    closeMapBtn.style.display = 'none';
-
-    minimapContainer1.appendChild(minimapRenderer.domElement);
-    minimapRenderer.setSize(
-      minimapContainer1.clientWidth,
-      minimapContainer1.clientHeight
-    );
-
-    minimapCamera.left = -20;
-    minimapCamera.right = 20;
-    minimapCamera.top = 20;
-    minimapCamera.bottom = -20;
-    minimapCamera.updateProjectionMatrix();
-  });
-
-}
-
-/* =========================
-   RENDER PAUSE WHILE MAP OPEN (SAFE HOOK)
-========================= */
-
-if (typeof animate === "function") {
-  const __oldAnimate = animate;
-
-  window.animate = function () {
-    if (!isFullMapOpen) {
-      __oldAnimate();
-    } else {
-      // still render scene + minimap without game logic
-      renderer.render(scene, camera);
-      minimapRenderer.render(scene, minimapCamera);
-      requestAnimationFrame(window.animate);
-    }
-  };
-}
-
- 
-
+applyQualitySettings();
