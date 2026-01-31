@@ -7,11 +7,11 @@ import { CSM } from 'three/addons/csm/CSM.js';
 ========================= */
 const scene = new THREE.Scene();
 
-// RENDERER - ENHANCED BRIGHTNESS
+// RENDERER
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.outputColorSpace = THREE.SRGBColorSpace; // ✅ KEY FIX: Makes colors vibrant
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 document.body.appendChild(renderer.domElement);
 
 const textureloader = new THREE.TextureLoader();
@@ -24,26 +24,23 @@ minimapRenderer.setPixelRatio(window.devicePixelRatio);
 minimapContainer.appendChild(minimapRenderer.domElement);
 
 /* =========================
-   DYNAMIC QUALITY (FPS BASED)
+   DYNAMIC QUALITY
 ========================= */
 let QUALITY = "medium";
 let qualityLocked = false;
 
 function applyQualitySettings() {
   console.log("Applying quality:", QUALITY);
-
   if (QUALITY === "low") {
     renderer.setPixelRatio(1);
     renderer.shadowMap.enabled = false;
     disableCSM();
   }
-
   if (QUALITY === "medium") {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.shadowMap.enabled = false;
     disableCSM();
   }
-
   if (QUALITY === "high") {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
@@ -52,7 +49,7 @@ function applyQualitySettings() {
 }
 
 /* =========================
-   FPS MEASUREMENT
+   FPS
 ========================= */
 let fpsSamples = [];
 let lastTime = performance.now();
@@ -62,17 +59,12 @@ function measureFPS() {
   const now = performance.now();
   const delta = now - lastTime;
   lastTime = now;
-
   const fps = 1000 / delta;
   fpsSamples.push(fps);
   if (fpsSamples.length > 60) fpsSamples.shift();
-
   avgFPS = fpsSamples.reduce((a, b) => a + b, 0) / fpsSamples.length;
 }
 
-/* =========================
-   HUD (FPS)
-========================= */
 const hud = document.createElement("div");
 hud.style.position = "fixed";
 hud.style.top = "10px";
@@ -92,55 +84,42 @@ setInterval(() => {
   hud.innerHTML = `FPS: ${avgFPS.toFixed(1)}<br>Quality: ${QUALITY}`;
 }, 500);
 
-/* =========================
-   AUTO QUALITY CONTROLLER
-========================= */
 setInterval(() => {
   if (qualityLocked) return;
-
   if (avgFPS < 28) {
     if (QUALITY === "high") QUALITY = "medium";
     else if (QUALITY === "medium") QUALITY = "low";
     applyQualitySettings();
     return;
   }
-
   if (avgFPS > 55) {
     if (QUALITY === "low") QUALITY = "medium";
     else if (QUALITY === "medium") QUALITY = "high";
     applyQualitySettings();
     return;
   }
-
-  if (avgFPS > 45 && avgFPS < 55) {
-    qualityLocked = true;
-  }
+  if (avgFPS > 45 && avgFPS < 55) qualityLocked = true;
 }, 3000);
 
 /* =========================
    CAMERAS
 ========================= */
 const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
-
-// Minimap Orthographic
 const minimapCamera = new THREE.OrthographicCamera(-20, 20, 20, -20, 0.1, 500);
 minimapCamera.position.set(0, 50, 0);
 minimapCamera.up.set(0, 0, -1);
 minimapCamera.lookAt(0, 0, 0);
 
 /* =========================
-   LIGHTS - STADIUM BRIGHTNESS (FIXED)
+   LIGHTS
 ========================= */
-// 1. Hemisphere Light: Soft white from sky, slight pink from ground (No shadows, just pure visibility)
 const hemiLight = new THREE.HemisphereLight(0xffffff, 0xff2fd5, 1.2); 
 scene.add(hemiLight);
 
-// 2. Main Sun: Bright white directional light
 const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
 dirLight.position.set(50, 100, 50);
 scene.add(dirLight);
 
-// 3. Fill Light: Blue-ish backlight to separate character from background
 const backLight = new THREE.DirectionalLight(0x00f0ff, 0.8);
 backLight.position.set(-50, 20, -50);
 scene.add(backLight);
@@ -149,10 +128,8 @@ scene.add(backLight);
    CSM SHADOWS
 ========================= */
 let csm = null;
-
 function enableCSM() {
   if (csm || QUALITY !== "high") return;
-
   csm = new CSM({
     maxFar: camera.far,
     cascades: 4,
@@ -162,14 +139,12 @@ function enableCSM() {
     lightDirection: new THREE.Vector3(-10, -10, 1).normalize(),
     camera
   });
-
   csm.lights.forEach(l => {
     l.shadow.bias = -0.0005;
     l.shadow.normalBias = 0.02;
-    l.intensity = 1.5; // Ensure shadows don't darken the scene too much
+    l.intensity = 1.5;
   });
 }
-
 function disableCSM() {
   if (!csm) return;
   csm.dispose?.();
@@ -177,27 +152,18 @@ function disableCSM() {
 }
 
 /* =========================
-   LOADER & ASSETS
+   LOADER
 ========================= */
 const loadingContainer = document.querySelector('.progress-bar-container');
 const progressBar = document.getElementById('progress-bar');
-
 const loadingManager = new THREE.LoadingManager(
   () => { /* handled in tryStartGame */ },
-  (url, loaded, total) => {
-      if(progressBar) progressBar.value = (loaded / total) * 100;
-  }
+  (url, loaded, total) => { if(progressBar) progressBar.value = (loaded / total) * 100; }
 );
-
 const loader = new GLTFLoader(loadingManager);
 
 const startInstructions = document.createElement('p');
-startInstructions.innerHTML = `
-    Use W/A/S/D to move<br>
-    Hold SHIFT to Sprint<br>
-    Click to Look Around<br>
-    Press ENTER to start
-`;
+startInstructions.innerHTML = `Use W/A/S/D to move<br>Hold SHIFT to Sprint<br>Click to Look Around<br>Press ENTER to start`;
 startInstructions.style.color = 'var(--secondary, #00f0ff)';
 startInstructions.style.textAlign = 'center';
 startInstructions.style.fontFamily = 'inherit';
@@ -208,18 +174,11 @@ let assetsLoaded = false;
 let userReady = false;
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    userReady = true;
-    tryStartGame();
-  }
+  if (e.key === 'Enter') { userReady = true; tryStartGame(); }
 });
 document.addEventListener('click', () => { userReady = true; tryStartGame(); });
 document.addEventListener('touchstart', () => { userReady = true; tryStartGame(); });
-
-loadingManager.onLoad = () => {
-  assetsLoaded = true;
-  tryStartGame();
-};
+loadingManager.onLoad = () => { assetsLoaded = true; tryStartGame(); };
 
 function tryStartGame() {
   if (assetsLoaded && userReady && loadingContainer.style.display !== 'none') {
@@ -229,43 +188,35 @@ function tryStartGame() {
 }
 
 /* =========================
-   WORLD ENVIRONMENT
+   WORLD
 ========================= */
 const skyGeo = new THREE.SphereGeometry(4,60,40);
-// Use MeshBasicMaterial for the sky so it ignores lighting (always bright)
 const skyMat = new THREE.MeshBasicMaterial({
-  map: textureloader.load("public/models/nightsky1.jpg"), // Make sure this path is correct
+  map: textureloader.load("public/models/nightsky1.jpg"), 
   side: THREE.BackSide,
-  color: 0xffffff // Ensure full brightness
+  color: 0xffffff
 });
 const sky = new THREE.Mesh(skyGeo, skyMat);
 scene.add(sky);
 sky.position.set(0,-1,0);
 sky.scale.set(100,100,100);
-sky.rotation.x = Math.PI/3;
-sky.rotation.z = Math.PI/3;
-sky.rotation.y = Math.PI/2;
+sky.rotation.set(Math.PI/3, Math.PI/2, Math.PI/3);
 
 /* =========================
-   COLLISION SYSTEM
+   COLLISION
 ========================= */
-const BLOCKED_NAMES = new Set([
-  "Object_35", "Object_43", "Object_47", "Object_15", "Object_79"
-]);
-
+const BLOCKED_NAMES = new Set(["Object_35", "Object_43", "Object_47", "Object_15", "Object_79"]);
 const blockedBoxes = [];
 
 loader.load('public/models/basemodel.glb', gltf => {
   scene.add(gltf.scene);
   gltf.scene.position.set(0, 2.83, 0);
   gltf.scene.updateMatrixWorld(true);
-
   gltf.scene.traverse(o => {
     if (o.isMesh) {
       o.castShadow = false;
       o.receiveShadow = false;
       if (csm) csm.setupMaterial(o.material);
-
       if (BLOCKED_NAMES.has(o.name)) {
         const box = new THREE.Box3().setFromObject(o);
         blockedBoxes.push({ box, name: o.name });
@@ -281,51 +232,34 @@ const PLAYER_HEIGHT = 2.0;
 function wouldCollide(nextPos) {
   playerBox.min.set(nextPos.x - PLAYER_RADIUS, nextPos.y, nextPos.z - PLAYER_RADIUS);
   playerBox.max.set(nextPos.x + PLAYER_RADIUS, nextPos.y + PLAYER_HEIGHT, nextPos.z + PLAYER_RADIUS);
-
   for (let i = 0; i < blockedBoxes.length; i++) {
-    if (playerBox.intersectsBox(blockedBoxes[i].box)) {
-      return true;
-    }
+    if (playerBox.intersectsBox(blockedBoxes[i].box)) return true;
   }
   return false;
 }
 
 const MAP_BOUNDS = { minX: -145, maxX: 180, minZ: -80, maxZ: 240 };
-
 function clampCharacterPosition() {
   character.position.x = Math.max(MAP_BOUNDS.minX, Math.min(MAP_BOUNDS.maxX, character.position.x));
   character.position.z = Math.max(MAP_BOUNDS.minZ, Math.min(MAP_BOUNDS.maxZ, character.position.z));
 }
 
 /* =========================
-   CHARACTER & ANIMATION
+   CHARACTER
 ========================= */
 const character = new THREE.Object3D();
 scene.add(character);
 
 const followCircle = new THREE.Mesh(
   new THREE.CircleGeometry(2.2),
-  new THREE.MeshBasicMaterial({
-    color: 0x0D00FF,
-    transparent: true,
-    opacity: 0.5,
-    side: THREE.DoubleSide,
-    depthWrite: false
-  })
+  new THREE.MeshBasicMaterial({ color: 0x0D00FF, transparent: true, opacity: 0.5, side: THREE.DoubleSide, depthWrite: false })
 );
 followCircle.rotation.x = -Math.PI / 2;
 scene.add(followCircle);
 
 const glowRing = new THREE.Mesh(
   new THREE.RingGeometry(2.2, 2.8, 32),
-  new THREE.MeshBasicMaterial({
-    color: 0x00ffff,
-    transparent: true,
-    opacity: 0.3,
-    side: THREE.DoubleSide,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false
-  })
+  new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.3, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false })
 );
 glowRing.rotation.x = -Math.PI / 2;
 scene.add(glowRing);
@@ -342,7 +276,6 @@ loader.load('public/models/finalmainmodel.glb', gltf => {
   const soldier = gltf.scene;
   soldier.scale.set(0.97, 0.97, 0.97);
   soldier.position.y = -1;
-
   soldier.traverse(o => {
     if (o.isMesh) {
       o.castShadow = false;
@@ -350,27 +283,24 @@ loader.load('public/models/finalmainmodel.glb', gltf => {
       if (csm) csm.setupMaterial(o.material);
     }
   });
-
   character.add(soldier);
-
   mixer = new THREE.AnimationMixer(soldier);
   gltf.animations.forEach(clip => {
     actions[clip.name.toLowerCase()] = mixer.clipAction(clip);
   });
-
   currentAction = actions.idle;
   currentAction?.play();
 });
 
 /* =========================
-   PHYSICS & MOVEMENT
+   PHYSICS & MOVEMENT (FIXED SKIDDING)
 ========================= */
-const GRAVITY = -28;
-const JUMP_FORCE = 10;
+const GRAVITY = -35;
+const JUMP_FORCE = 12;
 const WALK_SPEED = 8;
 const SPRINT_SPEED = 15;
-const ACCELERATION = 45; 
-const DECELERATION = 35;
+const ACCELERATION = 60; // Higher accel for snapping
+const DECELERATION = 40; // Higher friction to stop slide
 const AIR_CONTROL = 0.5;
 
 let velocity = new THREE.Vector3();
@@ -401,21 +331,19 @@ function updateKeyVisuals() {
 }
 
 /* =========================
-   CAMERA (POINTER LOCK STYLE)
+   CAMERA
 ========================= */
 let yaw = Math.PI;
 let pitch = 0.35;
 let cameraDist = 7;
 const MIN_DIST = 3.0;
 const MAX_DIST = 12.0;
-
 const MOUSE_SENSITIVITY = 0.0022;
 const CAMERA_SMOOTHING = 18;
 
 let targetYaw = yaw;
 let targetPitch = pitch;
 
-// Pointer Lock - CLICK TO ENABLE
 renderer.domElement.addEventListener('click', () => {
     if (popupOverlay && popupOverlay.style.display !== 'flex') {
         document.body.requestPointerLock();
@@ -436,13 +364,12 @@ document.addEventListener('wheel', e => {
 }, { passive: true });
 
 /* =========================
-   MOBILE INPUTS
+   MOBILE
 ========================= */
 let joyActive = false;
 let joyStart = new THREE.Vector2();
 let joyDelta = new THREE.Vector2();
 let joyVector = new THREE.Vector2();
-
 const joystick = document.getElementById('joystick');
 const stick = joystick?.querySelector('.stick');
 
@@ -452,18 +379,15 @@ if (joystick) {
     const t = e.touches[0];
     joyStart.set(t.clientX, t.clientY);
   });
-
   joystick.addEventListener('touchmove', e => {
     if (!joyActive) return;
     const t = e.touches[0];
     joyDelta.set(t.clientX - joyStart.x, t.clientY - joyStart.y);
-
     const max = 40;
     joyDelta.clampLength(0, max);
     if (stick) stick.style.transform = `translate(${joyDelta.x - 25}px, ${joyDelta.y - 25}px)`;
     joyVector.set(joyDelta.x / max, joyDelta.y / max);
   });
-
   joystick.addEventListener('touchend', () => {
     joyActive = false;
     joyDelta.set(0, 0);
@@ -480,7 +404,6 @@ window.addEventListener('touchstart', e => {
   touchLook = true;
   lastTouch.set(e.touches[0].clientX, e.touches[0].clientY);
 });
-
 window.addEventListener('touchmove', e => {
   if (!touchLook) return;
   const t = e.touches[0];
@@ -489,33 +412,22 @@ window.addEventListener('touchmove', e => {
   targetPitch = THREE.MathUtils.clamp(targetPitch, -0.3, 1.3);
   lastTouch.set(t.clientX, t.clientY);
 });
-
 window.addEventListener('touchend', () => { touchLook = false; });
 
 /* =========================
-   CAMERA UPDATE
+   UPDATE LOGIC
 ========================= */
 function updateCamera(delta) {
   yaw = THREE.MathUtils.lerp(yaw, targetYaw, CAMERA_SMOOTHING * delta);
   pitch = THREE.MathUtils.lerp(pitch, targetPitch, CAMERA_SMOOTHING * delta);
-
-  const camOffset = new THREE.Vector3(
-    Math.sin(yaw) * cameraDist,
-    2.8 + pitch * 2.2,
-    Math.cos(yaw) * cameraDist
-  );
-
+  const camOffset = new THREE.Vector3(Math.sin(yaw) * cameraDist, 2.8 + pitch * 2.2, Math.cos(yaw) * cameraDist);
   const targetCamPos = character.position.clone().add(camOffset);
   camera.position.lerp(targetCamPos, 12 * delta);
-  
   const lookTarget = character.position.clone();
   lookTarget.y += 1.7;
   camera.lookAt(lookTarget);
 }
 
-/* =========================
-   PLAYER MOVEMENT
-========================= */
 function updatePlayerMovement(delta) {
   const camForward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
   const camRight = new THREE.Vector3().crossVectors(camForward, new THREE.Vector3(0, 1, 0));
@@ -533,7 +445,8 @@ function updatePlayerMovement(delta) {
 
   isSprinting = keys.shift && inputDir.lengthSq() > 0;
   const targetSpeed = isSprinting ? SPRINT_SPEED : WALK_SPEED;
-
+  
+  // Acceleration Logic
   if (inputDir.lengthSq() > 0.001) {
     inputDir.normalize();
     const accel = isGrounded ? ACCELERATION : ACCELERATION * AIR_CONTROL;
@@ -541,17 +454,15 @@ function updatePlayerMovement(delta) {
     velocity.x += inputDir.x * accel * delta;
     velocity.z += inputDir.z * accel * delta;
 
+    // Cap speed
     const hSpeed = Math.sqrt(velocity.x ** 2 + velocity.z ** 2);
     if (hSpeed > targetSpeed) {
       const scale = targetSpeed / hSpeed;
       velocity.x *= scale;
       velocity.z *= scale;
     }
-
-    const targetRot = Math.atan2(inputDir.x, inputDir.z);
-    const rotDiff = ((targetRot - character.rotation.y + Math.PI) % (Math.PI * 2)) - Math.PI;
-    character.rotation.y += rotDiff * 16 * delta;
   } else {
+    // Deceleration (Friction)
     const decel = isGrounded ? DECELERATION : DECELERATION * AIR_CONTROL;
     const hSpeed = Math.sqrt(velocity.x ** 2 + velocity.z ** 2);
     const newHSpeed = Math.max(0, hSpeed - decel * delta);
@@ -560,10 +471,9 @@ function updatePlayerMovement(delta) {
     velocity.z *= scale;
   }
 
-  if (!isGrounded) {
-    velocity.y += GRAVITY * delta;
-  }
+  if (!isGrounded) velocity.y += GRAVITY * delta;
 
+  // Move
   const nextPos = character.position.clone();
   nextPos.x += velocity.x * delta;
   nextPos.y += velocity.y * delta;
@@ -578,6 +488,7 @@ function updatePlayerMovement(delta) {
 
   clampCharacterPosition();
 
+  // Floor collision
   if (character.position.y <= 0) {
     character.position.y = 0;
     velocity.y = 0;
@@ -586,14 +497,34 @@ function updatePlayerMovement(delta) {
     isGrounded = false;
   }
 
+  // ✅ ROTATION FIX: Rotate towards VELOCITY, not Input
+  // This prevents the "skidding" look because feet align with slide
   const hSpeed = Math.sqrt(velocity.x ** 2 + velocity.z ** 2);
-  let nextAction = actions.idle;
   
-  if (!isGrounded) {
-    nextAction = actions.jump || actions.idle;
-  } else if (hSpeed > 0.5) {
-    nextAction = isSprinting ? (actions.sprint || actions.running) : actions.running;
+  if (hSpeed > 0.5) {
+      // 1. Calculate angle from velocity
+      const targetRot = Math.atan2(velocity.x, velocity.z);
+      
+      // 2. Smoothly rotate character
+      const rotDiff = ((targetRot - character.rotation.y + Math.PI) % (Math.PI * 2)) - Math.PI;
+      character.rotation.y += rotDiff * 15 * delta;
+
+      // 3. Add "Banking" (Tilt into turn) for realism
+      if(character.children[0]) {
+          const tilt = -rotDiff * 0.5; // Lean magnitude
+          character.children[0].rotation.z = THREE.MathUtils.lerp(character.children[0].rotation.z, tilt, 10 * delta);
+      }
+  } else {
+      // Return to upright when stopped
+      if(character.children[0]) {
+           character.children[0].rotation.z = THREE.MathUtils.lerp(character.children[0].rotation.z, 0, 10 * delta);
+      }
   }
+
+  // Animation State
+  let nextAction = actions.idle;
+  if (!isGrounded) nextAction = actions.jump || actions.idle;
+  else if (hSpeed > 0.5) nextAction = isSprinting ? (actions.sprint || actions.running) : actions.running;
 
   if (nextAction && nextAction !== currentAction) {
     currentAction?.fadeOut(0.12);
@@ -603,7 +534,7 @@ function updatePlayerMovement(delta) {
 }
 
 /* =========================
-   MISSIONS & STOPS (FIXED BRIGHTNESS)
+   MISSIONS
 ========================= */
 const missionStops = [];
 
@@ -613,7 +544,6 @@ function createMissionLabel(text) {
   canvas.width = 512;
   canvas.height = 256;
 
-  // More transparent background for better visibility
   const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
   gradient.addColorStop(0, 'rgba(13, 0, 255, 0.6)');
   gradient.addColorStop(1, 'rgba(0, 240, 255, 0.6)');
@@ -621,7 +551,7 @@ function createMissionLabel(text) {
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   
-  ctx.strokeStyle = 'rgba(255, 255, 255, 1)'; // White border
+  ctx.strokeStyle = 'rgba(255, 255, 255, 1)'; 
   ctx.lineWidth = 10;
   ctx.strokeRect(5, 5, canvas.width - 10, canvas.height - 10);
 
@@ -632,9 +562,7 @@ function createMissionLabel(text) {
   ctx.fillText(text.toUpperCase(), canvas.width / 2, canvas.height / 2);
 
   const texture = new THREE.CanvasTexture(canvas);
-  // Important: Use SRGB color space for texture if renderer is SRGB
   texture.colorSpace = THREE.SRGBColorSpace; 
-  
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true }));
   sprite.scale.set(8, 4, 1);
   return sprite;
@@ -644,19 +572,12 @@ function createMissionStop(x, y, z, missionKey) {
   const group = new THREE.Group();
   group.position.set(x, y, z);
   scene.add(group);
-
   const enableGlow = QUALITY !== "low";
 
-  // Brighter Material
   const column = new THREE.Mesh(
     new THREE.CylinderGeometry(0.7, 0.7, 2.5, 20, 1, true),
     new THREE.MeshStandardMaterial({
-      color: 0xff2fd5,
-      emissive: 0xff2fd5,
-      emissiveIntensity: 3.0, // Very Bright Neon
-      transparent: true,
-      opacity: 0.8,
-      side: THREE.DoubleSide
+      color: 0xff2fd5, emissive: 0xff2fd5, emissiveIntensity: 3.0, transparent: true, opacity: 0.8, side: THREE.DoubleSide
     })
   );
 
@@ -665,12 +586,7 @@ function createMissionStop(x, y, z, missionKey) {
     glow = new THREE.Mesh(
       new THREE.CylinderGeometry(1.0, 1.0, 3.0, 20, 1, true),
       new THREE.MeshBasicMaterial({
-        color: 0xff66ff,
-        transparent: true,
-        opacity: 0.3,
-        side: THREE.BackSide,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false
+        color: 0xff66ff, transparent: true, opacity: 0.3, side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false
       })
     );
     group.add(glow);
@@ -679,11 +595,7 @@ function createMissionStop(x, y, z, missionKey) {
   const ring = new THREE.Mesh(
     new THREE.RingGeometry(1.0, 1.5, 40),
     new THREE.MeshBasicMaterial({
-      color: 0xff2fd5,
-      transparent: true,
-      opacity: 0.9,
-      side: THREE.DoubleSide,
-      blending: THREE.AdditiveBlending
+      color: 0xff2fd5, transparent: true, opacity: 0.9, side: THREE.DoubleSide, blending: THREE.AdditiveBlending
     })
   );
   ring.rotation.x = -Math.PI / 2;
@@ -692,22 +604,16 @@ function createMissionStop(x, y, z, missionKey) {
   const particleRing = new THREE.Mesh(
     new THREE.RingGeometry(1.5, 1.8, 40),
     new THREE.MeshBasicMaterial({
-      color: 0x00ffff,
-      transparent: true,
-      opacity: 0.6,
-      side: THREE.DoubleSide,
-      blending: THREE.AdditiveBlending
+      color: 0x00ffff, transparent: true, opacity: 0.6, side: THREE.DoubleSide, blending: THREE.AdditiveBlending
     })
   );
   particleRing.rotation.x = -Math.PI / 2;
   particleRing.position.y = 0.1;
 
   group.add(column, ring, particleRing);
-
   const labelSprite = createMissionLabel(missionKey);
   labelSprite.position.set(0, 7, 0);
   group.add(labelSprite);
-
   missionStops.push({ 
     group, column, glow, ring, particleRing, baseY: y, key: missionKey, label: labelSprite
   });
@@ -719,7 +625,7 @@ createMissionStop(-55, 0, 110, "glimpses");
 createMissionStop(60, 0, 170, "about");
 
 /* =========================
-   UI INTERACTION
+   UI
 ========================= */
 const interactPrompt = document.getElementById("interactPrompt");
 const popupOverlay = document.getElementById("missionPopupOverlay");
@@ -742,13 +648,11 @@ function checkMissionProximity() {
   for (let i = 0; i < missionStops.length; i++) {
     const stop = missionStops[i];
     const dist = stop.group.position.distanceTo(character.position);
-
     if (dist < INTERACT_DISTANCE) {
       activeMission = i;
       break;
     }
   }
-
   if (interactPrompt) {
     interactPrompt.style.display = activeMission !== null ? "block" : "none";
     if (activeMission !== null) {
@@ -760,26 +664,19 @@ function checkMissionProximity() {
 
 function openMissionPopup() {
   if (activeMission === null) return;
-  
   document.exitPointerLock();
-
   const missionKey = missionStops[activeMission].key;
-
   if (popupTitle) popupTitle.textContent = missionKey.toUpperCase();
   if (popupContent) popupContent.innerHTML = missionContentData[missionKey] || "No content found.";
   if (popupOverlay) popupOverlay.style.display = "flex";
-
   setupGallery(missionKey);
 }
-
 function closeMissionPopup() {
   if (popupOverlay) popupOverlay.style.display = "none";
 }
-
 window.addEventListener("keydown", e => {
   if (e.key.toLowerCase() === "e" && activeMission !== null) openMissionPopup();
 });
-
 if (interactPrompt) interactPrompt.addEventListener("click", () => {
   if (activeMission !== null) openMissionPopup();
 });
@@ -789,28 +686,20 @@ if (popupOverlay) popupOverlay.addEventListener("click", e => {
 });
 
 /* =========================
-   GALLERY (UPDATED WITH NEW IMAGES)
+   GALLERY
 ========================= */
 const galleryBox = document.getElementById("missionGallery");
 const galleryTrack = document.getElementById("galleryTrack");
 const galleryPrev = document.getElementById("galleryPrev");
 const galleryNext = document.getElementById("galleryNext");
-
-// ✅ UPDATED GALLERY DATA WITH YOUR UPLOADED IMAGES
 const missionGalleryData = {
-  events: [
-    "1.jpg", "2.jpg", "3.jpg", "4.jpg" 
-  ],
-  glimpses: [
-    "public/models/A3.jpg", "public/models/Logo_Cubeten2.png" 
-  ],
+  events: [ "1.jpg", "2.jpg", "3.jpg", "4.jpg" ],
+  glimpses: [ "public/models/A3.jpg", "public/models/Logo_Cubeten2.png" ],
   sponsors: [],
   about: []
 };
-
 let galleryIndex = 0;
 let activeGallery = [];
-
 function setupGallery(missionKey) {
     if (missionGalleryData[missionKey] && missionGalleryData[missionKey].length > 0) {
         if (galleryBox) galleryBox.style.display = "block";
@@ -821,22 +710,18 @@ function setupGallery(missionKey) {
         if (galleryBox) galleryBox.style.display = "none";
     }
 }
-
 function renderGallery() {
   if (!galleryTrack) return;
   galleryTrack.innerHTML = "";
   if (activeGallery.length === 0) return;
-
   const leftIndex = (galleryIndex - 1 + activeGallery.length) % activeGallery.length;
   const heroIndex = galleryIndex;
   const rightIndex = (galleryIndex + 1) % activeGallery.length;
-
   const items = [
     { src: activeGallery[leftIndex], type: "small" },
     { src: activeGallery[heroIndex], type: "hero" },
     { src: activeGallery[rightIndex], type: "small" }
   ];
-
   items.forEach(item => {
     const div = document.createElement("div");
     div.className = `gallery-item ${item.type}`;
@@ -846,29 +731,25 @@ function renderGallery() {
     galleryTrack.appendChild(div);
   });
 }
-
 if (galleryPrev) galleryPrev.addEventListener("click", () => {
   galleryIndex = (galleryIndex - 1 + activeGallery.length) % activeGallery.length;
   renderGallery();
 });
-
 if (galleryNext) galleryNext.addEventListener("click", () => {
   galleryIndex = (galleryIndex + 1) % activeGallery.length;
   renderGallery();
 });
 
 /* =========================
-   FULLSCREEN MAP
+   FULLMAP
 ========================= */
 const closeMapBtn = document.getElementById('closeMapBtn');
 const fullmapContainer = document.getElementById('fullmap');
 let isFullMapOpen = false;
-
 if (minimapContainer && fullmapContainer && closeMapBtn) {
     minimapContainer.addEventListener('click', () => {
         isFullMapOpen = true;
         document.exitPointerLock();
-
         fullmapContainer.style.display = 'flex';
         closeMapBtn.style.display = 'block';
         fullmapContainer.appendChild(minimapRenderer.domElement);
@@ -878,7 +759,6 @@ if (minimapContainer && fullmapContainer && closeMapBtn) {
         minimapCamera.top = zoom; minimapCamera.bottom = -zoom;
         minimapCamera.updateProjectionMatrix();
     });
-
     closeMapBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         isFullMapOpen = false;
@@ -896,19 +776,15 @@ if (minimapContainer && fullmapContainer && closeMapBtn) {
    MAIN LOOP
 ========================= */
 const clock = new THREE.Clock();
-
 function animate() {
   requestAnimationFrame(animate);
-
   if (isFullMapOpen) {
       renderer.render(scene, camera);
       minimapRenderer.render(scene, minimapCamera);
       return;
   }
-
   measureFPS();
   updateKeyVisuals();
-
   const delta = Math.min(clock.getDelta(), 0.05);
   
   if (mixer) mixer.update(delta);
@@ -919,7 +795,6 @@ function animate() {
   const pulseScale = 1 + Math.sin(performance.now() * 0.003) * 0.08;
   followCircle.position.set(character.position.x, 49, character.position.z);
   followCircle.scale.set(pulseScale, pulseScale, pulseScale);
-  
   glowRing.position.copy(followCircle.position);
   glowRing.rotation.z += delta * 0.5;
   glowRing.scale.set(pulseScale * 1.1, pulseScale * 1.1, pulseScale * 1.1);
@@ -932,16 +807,13 @@ function animate() {
   missionStops.forEach((ms, idx) => {
     const offset = idx * 0.5;
     ms.group.position.y = ms.baseY + Math.sin(t + offset) * 0.35;
-    
     if (QUALITY !== "low") {
       ms.group.rotation.y += delta * 0.7;
       if (ms.glow) {
         ms.glow.rotation.y -= delta * 1.2;
         ms.glow.material.opacity = 0.15 + Math.sin(t * 2 + offset) * 0.1;
       }
-      if (ms.ring) {
-        ms.ring.rotation.z += delta * 0.3;
-      }
+      if (ms.ring) ms.ring.rotation.z += delta * 0.3;
       if (ms.particleRing) {
         ms.particleRing.rotation.z -= delta * 0.8;
         ms.particleRing.material.opacity = 0.3 + Math.sin(t * 3 + offset) * 0.15;
@@ -950,11 +822,9 @@ function animate() {
   });
 
   if (csm) csm.update();
-
   renderer.render(scene, camera);
   minimapRenderer.render(scene, minimapCamera);
 }
-
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -963,5 +833,4 @@ window.addEventListener('resize', () => {
     minimapRenderer.setSize(minimapContainer.clientWidth, minimapContainer.clientHeight);
   }
 });
-
 applyQualitySettings();
