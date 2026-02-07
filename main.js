@@ -335,9 +335,9 @@ function updateKeyVisuals() {
 ========================= */
 let yaw = Math.PI;
 let pitch = 0.35;
-let cameraDist = 7;
-const MIN_DIST = 3.0;
-const MAX_DIST = 12.0;
+let cameraDist = 2.8;
+const MIN_DIST = 2.0;
+const MAX_DIST = 8.0;
 const MOUSE_SENSITIVITY = 0.0022;
 const CAMERA_SMOOTHING = 18;
 
@@ -420,7 +420,7 @@ window.addEventListener('touchend', () => { touchLook = false; });
 function updateCamera(delta) {
   yaw = THREE.MathUtils.lerp(yaw, targetYaw, CAMERA_SMOOTHING * delta);
   pitch = THREE.MathUtils.lerp(pitch, targetPitch, CAMERA_SMOOTHING * delta);
-  const camOffset = new THREE.Vector3(Math.sin(yaw) * cameraDist, 2.8 + pitch * 2.2, Math.cos(yaw) * cameraDist);
+  const camOffset = new THREE.Vector3(Math.sin(yaw) * cameraDist, 1.0+pitch , Math.cos(yaw) * cameraDist);
   const targetCamPos = character.position.clone().add(camOffset);
   camera.position.lerp(targetCamPos, 12 * delta);
   const lookTarget = character.position.clone();
