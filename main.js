@@ -197,10 +197,10 @@ minimapCamera.lookAt(0, 0, 0);
 /* =========================
    LIGHTS
 ========================= */
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0xff2fd5, 1.2); 
+const hemiLight = new THREE.HemisphereLight(0x00f0ff, 0xff2fd5, 1.2); 
 scene.add(hemiLight);
 
-const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
+const dirLight = new THREE.DirectionalLight(0x00f0ff, 2.0);
 dirLight.position.set(50, 100, 50);
 scene.add(dirLight);
 
@@ -273,7 +273,7 @@ function tryStartGame() {
 
 /* =========================
    WORLD
-========================= */
+========================= 
 const skyGeo = new THREE.SphereGeometry(4,60,40);
 const skyMat = new THREE.MeshBasicMaterial({
   map: textureloader.load("public/models/nightsky1.jpg"), 
@@ -292,9 +292,9 @@ sky.rotation.set(Math.PI/3, Math.PI/2, Math.PI/3);
 const BLOCKED_NAMES = new Set(["Object_35", "Object_43", "Object_47", "Object_15", "Object_79"]);
 const blockedBoxes = [];
 
-loader.load('public/models/basemodel.glb', gltf => {
+loader.load('public/models/mainland.glb', gltf => {
   scene.add(gltf.scene);
-  gltf.scene.position.set(0, 2.83, 0);
+  gltf.scene.position.set(0, 2.0, 0);
   gltf.scene.updateMatrixWorld(true);
   gltf.scene.traverse(o => {
     if (o.isMesh) {
