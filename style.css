@@ -6,6 +6,11 @@
 * {
   box-sizing: border-box;
 }
+#hud,
+#mobile-controls,
+#joystick {
+  display: none;
+}
 
 
 body, html {

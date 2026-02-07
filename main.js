@@ -1,3 +1,11 @@
+
+
+
+
+
+
+
+
 /* =========================================================
    ✅ AUTO DEVICE DETECTION + UI TOGGLE (ADDED)
    Does NOT remove or modify any existing logic
@@ -15,7 +23,7 @@
     let device = 'desktop';
 
     if (isTouch && width < 768) device = 'mobile';
-    else if (isTouch && width < 1024) device = 'tablet';
+    else if (isTouch && width < 1100) device = 'tablet';
 
     body.dataset.device = device;
     console.log('[DEVICE MODE]', device);
@@ -31,10 +39,11 @@
       mobileControls && (mobileControls.style.display = 'flex');
       joystick && (joystick.style.display = 'block');
       minimap && (minimap.style.opacity = '0.85');
+
     }
 
     if (device === 'tablet') {
-      hud && (hud.style.display = 'flex');
+      hud && (hud.style.opacity = '0');
       mobileControls && (mobileControls.style.display = 'flex');
       joystick && (joystick.style.display = 'block');
       minimap && (minimap.style.opacity = '1');
