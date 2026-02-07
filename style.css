@@ -7,6 +7,7 @@
   box-sizing: border-box;
 }
 
+
 body, html {
   margin: 0;
   padding: 0;
@@ -502,4 +503,191 @@ b {
 @media (hover: none) and (pointer: coarse) {
   #hud { display: none; }
   #mobile-controls { display: block; }
+}
+
+
+
+
+
+
+/* =========================================================
+   ✅ RESPONSIVE DEVICE LAYOUTS
+========================================================= */
+
+/* ---------- BASE ---------- */
+#mobile-controls,
+#joystick {
+  display: none;
+}
+
+.minimap {
+  transition: opacity 0.3s ease;
+}
+
+/* ---------- MOBILE ---------- */
+body[data-device="mobile"] #hud {
+  display: none !important;
+}
+
+body[data-device="mobile"] #mobile-controls {
+  display: flex !important;
+}
+
+body[data-device="mobile"] #joystick {
+  display: block !important;
+}
+
+body[data-device="mobile"] #interactPrompt {
+  font-size: 16px;
+  padding: 10px 14px;
+}
+
+/* ---------- TABLET ---------- */
+body[data-device="tablet"] #hud {
+  display: flex !important;
+}
+
+body[data-device="tablet"] #mobile-controls {
+  display: flex !important;
+}
+
+body[data-device="tablet"] #joystick {
+  display: block !important;
+}
+
+/* ---------- DESKTOP ---------- */
+body[data-device="desktop"] #mobile-controls,
+body[data-device="desktop"] #joystick {
+  display: none !important;
+}
+
+/* ---------- TOUCH FRIENDLY ---------- */
+@media (hover: none) {
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+/* =========================================================
+   ✅ MOBILE UI SCALE + ANTI-OVERLAP FIX
+========================================================= */
+
+/* ---------- GLOBAL MOBILE SCALE ---------- */
+body[data-device="mobile"] {
+  --ui-scale: 0.72;
+  --ui-gap: 8px;
+  --ui-radius: 14px;
+}
+
+/* ---------- HUD (FPS / Quality) ---------- */
+body[data-device="mobile"] #hud {
+  transform: scale(0.75);
+  transform-origin: top left;
+  top: 6px !important;
+  left: 6px !important;
+  padding: 6px 8px !important;
+  font-size: 11px !important;
+}
+
+/* ---------- MINIMAP ---------- */
+body[data-device="mobile"] .minimap {
+  width: 120px !important;
+  height: 120px !important;
+  top: 8px !important;
+  right: 8px !important;
+  border-width: 2px !important;
+}
+
+/* ---------- JOYSTICK ---------- */
+body[data-device="mobile"] #joystick {
+  width: 110px !important;
+  height: 110px !important;
+  left: 12px !important;
+  bottom: 12px !important;
+  opacity: 0.85;
+}
+
+body[data-device="mobile"] #joystick .stick {
+  width: 42px !important;
+  height: 42px !important;
+}
+
+/* ---------- INTERACT PROMPT ---------- */
+body[data-device="mobile"] #interactPrompt {
+  font-size: 14px !important;
+  padding: 10px 16px !important;
+  border-radius: var(--ui-radius) !important;
+  bottom: 140px !important; /* above joystick */
+  max-width: 80vw;
+  text-align: center;
+}
+
+/* ---------- MOBILE CONTROLS BAR ---------- */
+body[data-device="mobile"] #mobile-controls {
+  gap: var(--ui-gap);
+  padding: 6px 10px;
+}
+
+body[data-device="mobile"] #mobile-controls button {
+  transform: scale(0.85);
+  padding: 10px 12px !important;
+  font-size: 13px !important;
+  border-radius: 12px;
+}
+
+/* ---------- POPUP / MISSION UI ---------- */
+body[data-device="mobile"] #missionPopupOverlay {
+  padding: 12px;
+}
+
+body[data-device="mobile"] #missionPopup {
+  width: 92vw !important;
+  max-height: 80vh !important;
+  border-radius: 18px;
+}
+
+body[data-device="mobile"] #missionTitle {
+  font-size: 18px !important;
+}
+
+body[data-device="mobile"] #missionContent {
+  font-size: 14px !important;
+  line-height: 1.4;
+}
+
+/* ---------- GALLERY ---------- */
+body[data-device="mobile"] .gallery-item.hero {
+  width: 70vw !important;
+  height: auto;
+}
+
+body[data-device="mobile"] .gallery-item.small {
+  width: 18vw !important;
+}
+
+/* ---------- FULLMAP ---------- */
+body[data-device="mobile"] #fullmap {
+  padding: 0;
+}
+
+body[data-device="mobile"] #closeMapBtn {
+  top: 10px;
+  right: 10px;
+  transform: scale(0.85);
+}
+
+/* ---------- SAFE AREA (NOTCH / GESTURE BAR) ---------- */
+@supports (padding: env(safe-area-inset-bottom)) {
+  body[data-device="mobile"] {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+/* Absolute guarantee: never show both */
+body[data-device="desktop"] #joystick,
+body[data-device="desktop"] #mobile-controls {
+  display: none !important;
+}
+
+body[data-device="mobile"] #hud {
+  display: none !important;
 }

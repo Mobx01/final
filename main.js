@@ -1,6 +1,81 @@
+/* =========================================================
+   ✅ AUTO DEVICE DETECTION + UI TOGGLE (ADDED)
+   Does NOT remove or modify any existing logic
+========================================================= */
+(function () {
+  const body = document.body;
+
+  function detectDevice() {
+    const isTouch =
+      'ontouchstart' in window ||
+      navigator.maxTouchPoints > 0 ||
+      navigator.msMaxTouchPoints > 0;
+
+    const width = window.innerWidth;
+    let device = 'desktop';
+
+    if (isTouch && width < 768) device = 'mobile';
+    else if (isTouch && width < 1024) device = 'tablet';
+
+    body.dataset.device = device;
+    console.log('[DEVICE MODE]', device);
+
+    const hud = document.getElementById('hud');
+    const mobileControls = document.getElementById('mobile-controls');
+    const joystick = document.getElementById('joystick');
+    const minimap = document.querySelector('.minimap');
+
+    /* ===== TOGGLE UI ===== */
+    if (device === 'mobile') {
+      hud && (hud.style.display = 'none');
+      mobileControls && (mobileControls.style.display = 'flex');
+      joystick && (joystick.style.display = 'block');
+      minimap && (minimap.style.opacity = '0.85');
+    }
+
+    if (device === 'tablet') {
+      hud && (hud.style.display = 'flex');
+      mobileControls && (mobileControls.style.display = 'flex');
+      joystick && (joystick.style.display = 'block');
+      minimap && (minimap.style.opacity = '1');
+    }
+
+    if (device === 'desktop') {
+      hud && (hud.style.display = 'flex');
+      mobileControls && (mobileControls.style.display = 'none');
+      joystick && (joystick.style.display = 'none');
+      minimap && (minimap.style.opacity = '1');
+    }
+  }
+
+  detectDevice();
+  window.addEventListener('resize', detectDevice);
+})();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { CSM } from 'three/addons/csm/CSM.js';
+
 
 /* =========================
    SCENE SETUP
@@ -695,7 +770,7 @@ const galleryTrack = document.getElementById("galleryTrack");
 const galleryPrev = document.getElementById("galleryPrev");
 const galleryNext = document.getElementById("galleryNext");
 const missionGalleryData = {
-  events: [ "1.jpg", "2.jpg", "3.jpg", "4.jpg" ],
+  events: [ "public/models/1.jpg", "public/models/2.jpg", "public/models/3.jpg", "4.jpg" ],
   glimpses: [ "public/models/A3.jpg", "public/models/Logo_Cubeten2.png" ],
   sponsors: [],
   about: []
