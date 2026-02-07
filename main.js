@@ -339,7 +339,7 @@ let cameraDist = 2.8;
 const MIN_DIST = 2.0;
 const MAX_DIST = 8.0;
 const MOUSE_SENSITIVITY = 0.0022;
-const CAMERA_SMOOTHING = 18;
+const CAMERA_SMOOTHING = 5;
 
 let targetYaw = yaw;
 let targetPitch = pitch;
@@ -418,11 +418,13 @@ window.addEventListener('touchend', () => { touchLook = false; });
    UPDATE LOGIC
 ========================= */
 function updateCamera(delta) {
+  //yaw = THREE.MathUtils.lerp(yaw, targetYaw, CAMERA_SMOOTHING * delta);
   yaw = THREE.MathUtils.lerp(yaw, targetYaw, CAMERA_SMOOTHING * delta);
+
   pitch = THREE.MathUtils.lerp(pitch, targetPitch, CAMERA_SMOOTHING * delta);
-  const camOffset = new THREE.Vector3(Math.sin(yaw) * cameraDist, 1.0+pitch , Math.cos(yaw) * cameraDist);
+  const camOffset = new THREE.Vector3(Math.sin(yaw) * cameraDist, 1.4 , Math.cos(yaw) * cameraDist);camOffset.y += Math.sin(pitch) * 0.6;
   const targetCamPos = character.position.clone().add(camOffset);
-  camera.position.lerp(targetCamPos, 12 * delta);
+  camera.position.lerp(targetCamPos, 6 * delta);
   const lookTarget = character.position.clone();
   lookTarget.y += 1.7;
   camera.lookAt(lookTarget);
@@ -785,7 +787,7 @@ function animate() {
   }
   measureFPS();
   updateKeyVisuals();
-  const delta = Math.min(clock.getDelta(), 0.05);
+  const delta = Math.min(clock.getDelta(), 0.033);
   
   if (mixer) mixer.update(delta);
   updatePlayerMovement(delta);
