@@ -696,3 +696,95 @@ body[data-device="desktop"] #mobile-controls {
 body[data-device="mobile"] #hud {
   display: none !important;
 }
+
+
+
+/*navbar*/
+
+.navbar {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 500px
+  height: 64px;
+  
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 0 20px;
+  z-index: 9999;
+  margin: auto;
+  border: 2px solid var(--border-bright);
+  backdrop-filter: blur(10px);
+}
+
+.nav-links {
+  display: flex;
+  gap: 24px;
+  list-style: none;
+}
+
+.nav-links button {
+  background: none;
+  border: none;
+  color: #00f0ff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.hamburger span {
+  width: 26px;
+  height: 3px;
+  background: #00f0ff;
+  border-radius: 2px;
+}
+/* MOBILE → hamburger */
+body[data-device="mobile"] .nav-links {
+  position: absolute;
+  top: 72px;
+  left: 0;
+  width: 100%;
+  flex-direction: column;
+  padding: 20px;
+  gap: 16px;
+  display: none;
+  background: rgba(0,0,0,0.85);
+}
+
+body[data-device="mobile"] .nav-links.active {
+  display: flex;
+}
+
+body[data-device="mobile"] .hamburger {
+  display: flex;
+}
+
+/* TABLET → your choice */
+body[data-device="tablet"] .hamburger {
+  display: flex;
+}
+
+body[data-device="tablet"] .nav-links {
+  display: none;
+}
+
+body[data-device="tablet"] .nav-links.active {
+  display: flex;
+  position: absolute;
+  top: 72px;
+  width: 100%;
+  flex-direction: column;
+}
+body[data-device="mobile"] .navbar,
+body[data-device="tablet"] .navbar {
+  max-width: calc(100% - 80px);
+}

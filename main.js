@@ -1,14 +1,7 @@
 
-
-
-
-
-
-
-
 /* =========================================================
-   ✅ AUTO DEVICE DETECTION + UI TOGGLE (ADDED)
-   Does NOT remove or modify any existing logic
+AUTO DEVICE DETECTION + UI TOGGLE (ADDED)
+   
 ========================================================= */
 (function () {
   const body = document.body;
@@ -60,23 +53,6 @@
   detectDevice();
   window.addEventListener('resize', detectDevice);
 })();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -428,7 +404,8 @@ const CAMERA_SMOOTHING = 5;
 let targetYaw = yaw;
 let targetPitch = pitch;
 
-renderer.domElement.addEventListener('click', () => {
+renderer.domElement.addEventListener('click', (e) => {
+  if (e.target.closest('button')) return;
     if (popupOverlay && popupOverlay.style.display !== 'flex') {
         document.body.requestPointerLock();
     }
@@ -567,11 +544,7 @@ function updatePlayerMovement(delta) {
 
   if (!wouldCollide(nextPos)) {
     character.position.copy(nextPos);
-  } else {
-    velocity.x = 0;
-    velocity.z = 0;
-  }
-
+  } 
   clampCharacterPosition();
 
   // Floor collision
@@ -705,10 +678,52 @@ function createMissionStop(x, y, z, missionKey) {
   });
 }
 
-createMissionStop(50, 0, 49, "events");
-createMissionStop(-4, 0, -72, "sponsors");
-createMissionStop(-55, 0, 110, "glimpses");
-createMissionStop(60, 0, 170, "about");
+createMissionStop(0, 0, 130, "events");
+createMissionStop(-10, 0, 140, "sponsors");
+createMissionStop(-18, 0, 130, "glimpses");
+createMissionStop(-10, 0, 120, "about");
+
+function changeCharacterPosition(btnId) {
+  if (btnId === "eventBtn") {
+    character.position.set(0, 0, 130);
+  } 
+  else if (btnId === "sponsorBtn") {
+    character.position.set(-10, 0, 140);
+  } 
+  else if (btnId === "glimpseBtn") {
+    character.position.set(-18, 0, 130);
+  } 
+  else if (btnId === "aboutBtn") {
+    character.position.set(-10, 0, 120);
+  }
+
+  console.log("Moved via:", btnId);
+}
+
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+
+  e.stopPropagation();
+  document.exitPointerLock();
+
+  changeCharacterPosition(btn.id);
+});
+const hamburger = document.getElementById("hamburger");
+const navLinks = document.querySelector(".nav-links");
+
+if (hamburger) {
+  hamburger.addEventListener("click", (e) => {
+    e.stopPropagation();
+    navLinks.classList.toggle("active");
+    document.exitPointerLock();
+  });
+}
+
+document.addEventListener("click", () => {
+  navLinks.classList.remove("active");
+});
+
 
 /* =========================
    UI
@@ -877,7 +892,7 @@ function animate() {
   updatePlayerMovement(delta);
   updateCamera(delta);
   checkMissionProximity();
-
+  
   const pulseScale = 1 + Math.sin(performance.now() * 0.003) * 0.08;
   followCircle.position.set(character.position.x, 49, character.position.z);
   followCircle.scale.set(pulseScale, pulseScale, pulseScale);
@@ -920,3 +935,6 @@ window.addEventListener('resize', () => {
   }
 });
 applyQualitySettings();
+
+
+//button settings
