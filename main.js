@@ -934,7 +934,33 @@ window.addEventListener('resize', () => {
     minimapRenderer.setSize(minimapContainer.clientWidth, minimapContainer.clientHeight);
   }
 });
+
+
 applyQualitySettings();
 
 
 //button settings
+/* ===== NAVBAR UI ===== */
+
+(function () {
+  const hamburger = document.getElementById("hamburger");
+  const navLinks = document.querySelector(".nav-links");
+
+  if (!hamburger || !navLinks) return;
+
+  window.addEventListener("scroll", () => {
+    document.body.classList.toggle("nav-scrolled", window.scrollY > 20);
+  });
+
+  hamburger.addEventListener("click", () => {
+    hamburger.classList.toggle("active");
+    navLinks.classList.toggle("active");
+  });
+
+  document.querySelectorAll(".nav-links button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      navLinks.classList.remove("active");
+      hamburger.classList.remove("active");
+    });
+  });
+})();
