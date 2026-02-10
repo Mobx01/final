@@ -180,9 +180,9 @@ const dirLight = new THREE.DirectionalLight(0x00f0ff, 2.0);
 dirLight.position.set(50, 100, 50);
 scene.add(dirLight);
 
-const backLight = new THREE.DirectionalLight(0x00f0ff, 0.8);
-backLight.position.set(-50, 20, -50);
-scene.add(backLight);
+//const backLight = new THREE.DirectionalLight(0x00f0ff, 0.8);
+//backLight.position.set(-50, 20, -50);
+//scene.add(backLight);
 
 /* =========================
    CSM SHADOWS
@@ -269,7 +269,7 @@ const BLOCKED_NAMES = new Set(["Object_35", "Object_43", "Object_47", "Object_15
 const blockedBoxes = [];
 
 loader.load('public/models/mainland.glb', gltf => {
-  scene.add(gltf.scene);
+  
   gltf.scene.position.set(0, 2.0, 0);
   gltf.scene.updateMatrixWorld(true);
   gltf.scene.traverse(o => {
@@ -281,8 +281,14 @@ loader.load('public/models/mainland.glb', gltf => {
         const box = new THREE.Box3().setFromObject(o);
         blockedBoxes.push({ box, name: o.name });
       }
+      if(o.name == "Сфера"){
+        o.position.set(0,10000,0);
+        console.log('big model  loaded');
+
+      }
     }
   });
+  scene.add(gltf.scene);
 });
 
 const playerBox = new THREE.Box3();
@@ -303,7 +309,13 @@ function clampCharacterPosition() {
   character.position.x = Math.max(MAP_BOUNDS.minX, Math.min(MAP_BOUNDS.maxX, character.position.x));
   character.position.z = Math.max(MAP_BOUNDS.minZ, Math.min(MAP_BOUNDS.maxZ, character.position.z));
 }
-
+const spheregeo = new THREE.SphereGeometry(360);
+const sphermat = new THREE.MeshStandardMaterial({
+  map: textureloader.load('public/models/stars.jpg'),
+  side:THREE.DoubleSide
+});
+const sphere = new THREE.Mesh(spheregeo,sphermat);
+scene.add(sphere);
 /* =========================
    CHARACTER
 ========================= */
@@ -394,10 +406,13 @@ function updateKeyVisuals() {
    CAMERA
 ========================= */
 let yaw = Math.PI;
-let pitch = 0.35;
+let pitch = 0.55;
 let cameraDist = 2.8;
 const MIN_DIST = 2.0;
 const MAX_DIST = 8.0;
+const MIN_PITCH = -4.2;
+const MAX_PITCH = 1.2;
+
 const MOUSE_SENSITIVITY = 0.0022;
 const CAMERA_SMOOTHING = 5;
 
@@ -415,7 +430,8 @@ document.addEventListener('mousemove', e => {
     if (document.pointerLockElement === document.body) {
         targetYaw -= e.movementX * MOUSE_SENSITIVITY;
         targetPitch -= e.movementY * MOUSE_SENSITIVITY;
-        targetPitch = THREE.MathUtils.clamp(targetPitch, -0.3, 1.3);
+        //targetPitch = THREE.MathUtils.clamp(targetPitch, MIN_PITCH, MAX_PITCH);
+        console.log("looking at ",targetPitch,camera.position.y);
     }
 });
 
@@ -470,7 +486,7 @@ window.addEventListener('touchmove', e => {
   const t = e.touches[0];
   targetYaw -= (t.clientX - lastTouch.x) * 0.006;
   targetPitch -= (t.clientY - lastTouch.y) * 0.004;
-  targetPitch = THREE.MathUtils.clamp(targetPitch, -0.3, 1.3);
+  //targetPitch = THREE.MathUtils.clamp(targetPitch, -0.3, 1.3);
   lastTouch.set(t.clientX, t.clientY);
 });
 window.addEventListener('touchend', () => { touchLook = false; });
@@ -479,17 +495,34 @@ window.addEventListener('touchend', () => { touchLook = false; });
    UPDATE LOGIC
 ========================= */
 function updateCamera(delta) {
-  //yaw = THREE.MathUtils.lerp(yaw, targetYaw, CAMERA_SMOOTHING * delta);
-  yaw = THREE.MathUtils.lerp(yaw, targetYaw, CAMERA_SMOOTHING * delta);
 
+  yaw = THREE.MathUtils.lerp(yaw, targetYaw, CAMERA_SMOOTHING * delta);
   pitch = THREE.MathUtils.lerp(pitch, targetPitch, CAMERA_SMOOTHING * delta);
-  const camOffset = new THREE.Vector3(Math.sin(yaw) * cameraDist, 1.4 , Math.cos(yaw) * cameraDist);camOffset.y += Math.sin(pitch) * 0.6;
-  const targetCamPos = character.position.clone().add(camOffset);
+
+  // 90° up/down clamp
+  pitch = THREE.MathUtils.clamp(
+    pitch,
+    -Math.PI / 10 + 0.001,
+    Math.PI / 2 - 0.001
+  );
+
+  // Proper spherical orbit calculation
+  const offset = new THREE.Vector3();
+
+  offset.x = cameraDist * Math.sin(yaw) * Math.cos(pitch);
+  offset.y = cameraDist * Math.sin(pitch);
+  offset.z = cameraDist * Math.cos(yaw) * Math.cos(pitch);
+
+  const targetCamPos = character.position.clone().add(offset);
+
   camera.position.lerp(targetCamPos, 6 * delta);
+
   const lookTarget = character.position.clone();
   lookTarget.y += 1.7;
+
   camera.lookAt(lookTarget);
 }
+
 
 function updatePlayerMovement(delta) {
   const camForward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
