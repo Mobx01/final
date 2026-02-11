@@ -1,3 +1,99 @@
+/* =========================================================
+   PROJECT: Ahouba 3D Interactive Experience
+   AUTHOR: Sanjeev Singh
+   ENGINE: Three.js
+   DESCRIPTION:
+   A third-person interactive 3D world with:
+   - Character controller (physics + animation)
+   - Dynamic camera system (orbit-based)
+   - Adaptive quality system (FPS-based scaling)
+   - Mission interaction system
+   - Popup UI + Gallery
+   - Minimap + Fullmap system
+   - Mobile + Desktop control support
+   - Dynamic shadow management (CSM)
+
+   =========================================================
+   GLOBAL SYSTEM VARIABLES EXPLAINED
+   =========================================================
+
+   --- CAMERA SYSTEM ---
+   yaw                → Horizontal camera rotation (left/right orbit angle)
+   pitch              → Vertical camera rotation (up/down orbit angle)
+   targetYaw          → Smoothed target yaw for interpolation
+   targetPitch        → Smoothed target pitch for interpolation
+   cameraDist         → Distance between camera and character
+   MIN_DIST/MAX_DIST  → Zoom limits
+   MIN_PITCH/MAX_PITCH→ Vertical look constraints
+   CAMERA_SMOOTHING   → Lerp factor for smooth camera motion
+
+   --- CHARACTER MOVEMENT ---
+   character.position.x → Character world X position
+   character.position.y → Character vertical position (jumping/gravity)
+   character.position.z → Character world Z position
+   velocity            → Current player velocity (Vector3)
+   GRAVITY             → Downward acceleration force
+   JUMP_FORCE          → Upward impulse on jump
+   WALK_SPEED          → Normal movement speed
+   SPRINT_SPEED        → Sprint movement speed
+   ACCELERATION        → Horizontal acceleration rate
+   DECELERATION        → Friction when stopping
+   AIR_CONTROL         → Movement control multiplier in air
+   isGrounded          → Whether player is touching ground
+   isSprinting         → Whether sprint key is active
+
+   --- COLLISION SYSTEM ---
+   BLOCKED_NAMES       → Mesh names treated as colliders
+   blockedBoxes        → Bounding boxes of collidable meshes
+   playerBox           → Player collision bounding box
+   PLAYER_RADIUS       → Horizontal collision size
+   PLAYER_HEIGHT       → Vertical collision size
+
+   --- QUALITY SYSTEM ---
+   QUALITY             → Current quality level ("low", "medium", "high")
+   qualityLocked       → Prevents frequent switching
+   avgFPS              → Averaged frame rate
+   fpsSamples          → Recent FPS history
+
+   --- MISSION SYSTEM ---
+   missionStops        → All mission trigger objects
+   activeMission       → Current interactable mission index
+   INTERACT_DISTANCE   → Distance required to interact
+   missionContentData  → Popup content mapping
+
+   --- MOBILE CONTROLS ---
+   joyVector           → Direction from joystick
+   joyActive           → Whether joystick is active
+   touchLook           → Whether touch-look camera is active
+
+   =========================================================
+   FILE STRUCTURE ORDER
+   =========================================================
+   1. Device Detection
+   2. Imports
+   3. Scene + Renderer Setup
+   4. Quality System
+   5. Camera Setup
+   6. Lighting
+   7. Shadow System (CSM)
+   8. Loader + Loading Screen
+   9. World Setup
+   10. Collision System
+   11. Character + Animation
+   12. Input Handling
+   13. Camera Logic
+   14. Player Movement Logic
+   15. Mission System
+   16. UI + Popup System
+   17. Gallery System
+   18. Minimap + Fullmap
+   19. Main Animation Loop
+   20. Resize Handling
+   21. Navbar UI System
+
+========================================================= */
+
+
 
 /* =========================================================
 AUTO DEVICE DETECTION + UI TOGGLE (ADDED)
@@ -54,34 +150,6 @@ AUTO DEVICE DETECTION + UI TOGGLE (ADDED)
   window.addEventListener('resize', detectDevice);
 })();
 
-
-
-
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { CSM } from 'three/addons/csm/CSM.js';
-
-
-/* =========================
-   SCENE SETUP
-========================= */
-const scene = new THREE.Scene();
-
-// RENDERER
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-document.body.appendChild(renderer.domElement);
-
-const textureloader = new THREE.TextureLoader();
-
-// MINIMAP RENDERER
-const minimapContainer = document.getElementById('minimap');
-const minimapRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-minimapRenderer.setSize(minimapContainer.clientWidth, minimapContainer.clientHeight);
-minimapRenderer.setPixelRatio(window.devicePixelRatio);
-minimapContainer.appendChild(minimapRenderer.domElement);
 
 /* =========================
    DYNAMIC QUALITY
@@ -161,6 +229,38 @@ setInterval(() => {
   if (avgFPS > 45 && avgFPS < 55) qualityLocked = true;
 }, 3000);
 
+
+
+
+/*imports*/
+
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { CSM } from 'three/addons/csm/CSM.js';
+
+
+/* =========================
+   SCENE SETUP
+========================= */
+const scene = new THREE.Scene();
+
+// RENDERER
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+
+const textureloader = new THREE.TextureLoader();
+
+// MINIMAP RENDERER
+const minimapContainer = document.getElementById('minimap');
+const minimapRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+minimapRenderer.setSize(minimapContainer.clientWidth, minimapContainer.clientHeight);
+minimapRenderer.setPixelRatio(window.devicePixelRatio);
+minimapContainer.appendChild(minimapRenderer.domElement);
+
+
 /* =========================
    CAMERAS
 ========================= */
@@ -169,6 +269,45 @@ const minimapCamera = new THREE.OrthographicCamera(-20, 20, 20, -20, 0.1, 500);
 minimapCamera.position.set(0, 50, 0);
 minimapCamera.up.set(0, 0, -1);
 minimapCamera.lookAt(0, 0, 0);
+
+
+/* =========================
+   CAMERA LOGIC
+========================= */
+let yaw = Math.PI;
+let pitch = 0.55;
+let cameraDist = 2.8;
+const MIN_DIST = 2.0;
+const MAX_DIST = 8.0;
+const MIN_PITCH = -4.2;
+const MAX_PITCH = 1.2;
+
+const MOUSE_SENSITIVITY = 0.0022;
+const CAMERA_SMOOTHING = 5;
+
+let targetYaw = yaw;
+let targetPitch = pitch;
+
+renderer.domElement.addEventListener('click', (e) => {
+  if (e.target.closest('button')) return;
+    if (popupOverlay && popupOverlay.style.display !== 'flex') {
+        document.body.requestPointerLock();
+    }
+});
+
+document.addEventListener('mousemove', e => {
+    if (document.pointerLockElement === document.body) {
+        targetYaw -= e.movementX * MOUSE_SENSITIVITY;
+        targetPitch -= e.movementY * MOUSE_SENSITIVITY;
+        //targetPitch = THREE.MathUtils.clamp(targetPitch, MIN_PITCH, MAX_PITCH);
+        console.log("looking at ",targetPitch,camera.position.y);
+    }
+});
+
+document.addEventListener('wheel', e => {
+    cameraDist += e.deltaY * 0.007;
+    cameraDist = THREE.MathUtils.clamp(cameraDist, MIN_DIST, MAX_DIST);
+}, { passive: true });
 
 /* =========================
    LIGHTS
@@ -262,8 +401,9 @@ sky.position.set(0,-1,0);
 sky.scale.set(100,100,100);
 sky.rotation.set(Math.PI/3, Math.PI/2, Math.PI/3);
 
+
 /* =========================
-   COLLISION
+   World + COLLISION
 ========================= */
 const BLOCKED_NAMES = new Set(["Object_35", "Object_43", "Object_47", "Object_15", "Object_79"]);
 const blockedBoxes = [];
@@ -316,6 +456,41 @@ const sphermat = new THREE.MeshStandardMaterial({
 });
 const sphere = new THREE.Mesh(spheregeo,sphermat);
 scene.add(sphere);
+
+
+/* =========================
+   FULLMAP
+========================= */
+const closeMapBtn = document.getElementById('closeMapBtn');
+const fullmapContainer = document.getElementById('fullmap');
+let isFullMapOpen = false;
+if (minimapContainer && fullmapContainer && closeMapBtn) {
+    minimapContainer.addEventListener('click', () => {
+        isFullMapOpen = true;
+        document.exitPointerLock();
+        fullmapContainer.style.display = 'flex';
+        closeMapBtn.style.display = 'block';
+        fullmapContainer.appendChild(minimapRenderer.domElement);
+        minimapRenderer.setSize(window.innerWidth, window.innerHeight);
+        const zoom = 100;
+        minimapCamera.left = -zoom; minimapCamera.right = zoom;
+        minimapCamera.top = zoom; minimapCamera.bottom = -zoom;
+        minimapCamera.updateProjectionMatrix();
+    });
+    closeMapBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isFullMapOpen = false;
+        fullmapContainer.style.display = 'none';
+        closeMapBtn.style.display = 'none';
+        minimapContainer.appendChild(minimapRenderer.domElement);
+        minimapRenderer.setSize(minimapContainer.clientWidth, minimapContainer.clientHeight);
+        minimapCamera.left = -20; minimapCamera.right = 20;
+        minimapCamera.top = 20; minimapCamera.bottom = -20;
+        minimapCamera.updateProjectionMatrix();
+    });
+}
+
+
 /* =========================
    CHARACTER
 ========================= */
@@ -402,43 +577,6 @@ function updateKeyVisuals() {
     });
 }
 
-/* =========================
-   CAMERA
-========================= */
-let yaw = Math.PI;
-let pitch = 0.55;
-let cameraDist = 2.8;
-const MIN_DIST = 2.0;
-const MAX_DIST = 8.0;
-const MIN_PITCH = -4.2;
-const MAX_PITCH = 1.2;
-
-const MOUSE_SENSITIVITY = 0.0022;
-const CAMERA_SMOOTHING = 5;
-
-let targetYaw = yaw;
-let targetPitch = pitch;
-
-renderer.domElement.addEventListener('click', (e) => {
-  if (e.target.closest('button')) return;
-    if (popupOverlay && popupOverlay.style.display !== 'flex') {
-        document.body.requestPointerLock();
-    }
-});
-
-document.addEventListener('mousemove', e => {
-    if (document.pointerLockElement === document.body) {
-        targetYaw -= e.movementX * MOUSE_SENSITIVITY;
-        targetPitch -= e.movementY * MOUSE_SENSITIVITY;
-        //targetPitch = THREE.MathUtils.clamp(targetPitch, MIN_PITCH, MAX_PITCH);
-        console.log("looking at ",targetPitch,camera.position.y);
-    }
-});
-
-document.addEventListener('wheel', e => {
-    cameraDist += e.deltaY * 0.007;
-    cameraDist = THREE.MathUtils.clamp(cameraDist, MIN_DIST, MAX_DIST);
-}, { passive: true });
 
 /* =========================
    MOBILE
@@ -490,6 +628,11 @@ window.addEventListener('touchmove', e => {
   lastTouch.set(t.clientX, t.clientY);
 });
 window.addEventListener('touchend', () => { touchLook = false; });
+
+
+
+
+
 
 /* =========================
    UPDATE LOGIC
@@ -874,37 +1017,34 @@ if (galleryNext) galleryNext.addEventListener("click", () => {
   renderGallery();
 });
 
-/* =========================
-   FULLMAP
-========================= */
-const closeMapBtn = document.getElementById('closeMapBtn');
-const fullmapContainer = document.getElementById('fullmap');
-let isFullMapOpen = false;
-if (minimapContainer && fullmapContainer && closeMapBtn) {
-    minimapContainer.addEventListener('click', () => {
-        isFullMapOpen = true;
-        document.exitPointerLock();
-        fullmapContainer.style.display = 'flex';
-        closeMapBtn.style.display = 'block';
-        fullmapContainer.appendChild(minimapRenderer.domElement);
-        minimapRenderer.setSize(window.innerWidth, window.innerHeight);
-        const zoom = 100;
-        minimapCamera.left = -zoom; minimapCamera.right = zoom;
-        minimapCamera.top = zoom; minimapCamera.bottom = -zoom;
-        minimapCamera.updateProjectionMatrix();
+
+/* ===== NAVBAR UI ===== */
+
+(function () {
+  const hamburger = document.getElementById("hamburger");
+  const navLinks = document.querySelector(".nav-links");
+
+  if (!hamburger || !navLinks) return;
+
+  window.addEventListener("scroll", () => {
+    document.body.classList.toggle("nav-scrolled", window.scrollY > 20);
+  });
+
+  hamburger.addEventListener("click", () => {
+    hamburger.classList.toggle("active");
+    navLinks.classList.toggle("active");
+  });
+
+  document.querySelectorAll(".nav-links button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      navLinks.classList.remove("active");
+      hamburger.classList.remove("active");
     });
-    closeMapBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        isFullMapOpen = false;
-        fullmapContainer.style.display = 'none';
-        closeMapBtn.style.display = 'none';
-        minimapContainer.appendChild(minimapRenderer.domElement);
-        minimapRenderer.setSize(minimapContainer.clientWidth, minimapContainer.clientHeight);
-        minimapCamera.left = -20; minimapCamera.right = 20;
-        minimapCamera.top = 20; minimapCamera.bottom = -20;
-        minimapCamera.updateProjectionMatrix();
-    });
-}
+  });
+})();
+
+
+
 
 /* =========================
    MAIN LOOP
@@ -973,27 +1113,3 @@ applyQualitySettings();
 
 
 //button settings
-/* ===== NAVBAR UI ===== */
-
-(function () {
-  const hamburger = document.getElementById("hamburger");
-  const navLinks = document.querySelector(".nav-links");
-
-  if (!hamburger || !navLinks) return;
-
-  window.addEventListener("scroll", () => {
-    document.body.classList.toggle("nav-scrolled", window.scrollY > 20);
-  });
-
-  hamburger.addEventListener("click", () => {
-    hamburger.classList.toggle("active");
-    navLinks.classList.toggle("active");
-  });
-
-  document.querySelectorAll(".nav-links button").forEach(btn => {
-    btn.addEventListener("click", () => {
-      navLinks.classList.remove("active");
-      hamburger.classList.remove("active");
-    });
-  });
-})();
